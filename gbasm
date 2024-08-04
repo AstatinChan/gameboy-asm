@@ -12,6 +12,7 @@ def padTo(args, addr):
     return (args[0] - addr) * [0]
 
 labels = {}
+constants = {}
 
 instructions = [
     { "opcode": "LD", "params": [
@@ -315,6 +316,14 @@ def main():
     output.write(program)
     output.close()
 
+def getConstant(name):
+    if name.startswith("$") and len(name) > 2:
+        if name[1:].isnumeric():
+            return "0x" + name[1:]
+        else:
+            return getConstant(constants[name[1:]].upper())
+
+
 def preprocess(input_file, offset):
     f = open(input_file, "r")
     relative_path = dirname(abspath(input_file))
@@ -335,6 +344,10 @@ def preprocess(input_file, offset):
             included_lines, starting_address = preprocess(file, starting_address)
             lines += included_lines
             continue
+
+        if len(words) == 3 and words[0].upper() == ".DEFINE":
+            constants[words[1].upper()] = words[2]
+            continue
         
         if ':' in line_without_comment:
             splitted = line_without_comment.split(':')
@@ -342,7 +355,13 @@ def preprocess(input_file, offset):
             line_without_comment = splitted[1].strip()
 
         if line_without_comment != '':
-            res = line_without_comment.replace("$", "0x").replace(",", " ").replace("0xFF00+", "")
+            words = line_without_comment.replace(",", " ").replace("0xFF00+", "").split(" ")
+
+            for i in range(0, len(words)):
+                if words[i].startswith("$") and len(words[i]) > 2:
+                    words[i] = getConstant(words[i])
+
+            res = " ".join(words)
             lines.append(res)
             instruction = Instruction(res, None)
             print("Line: " + line)
