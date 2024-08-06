@@ -1,5 +1,6 @@
 #!/bin/python
 import argparse
+import string
 from os.path import abspath, dirname
 
 def padTo(args, addr):
@@ -85,7 +86,7 @@ instructions = [
         { "type": ["r"], "format": lambda args, _: [0b00000101 | (args[0] << 3)] },
         { "type": ["(HL)"], "format": lambda args, _: [0b00110101] },
 
-        # TODO: rr
+        { "type": ["rr"], "format": lambda args, _: [0b00001011 | (args[0] << 4)] },
     ]},
     { "opcode": "AND", "params": [
         { "type": ["r"], "format": lambda args, _: [0b10100000 | (args[0])] },
@@ -316,12 +317,18 @@ def main():
     output.write(program)
     output.close()
 
+def isValidHexadecimal(s):
+    return all(c in string.hexdigits for c in s) and (len(s) == 2 or len(s) == 4)
+
+
 def getConstant(name):
+    global constants
     if name.startswith("$") and len(name) > 2:
-        if name[1:].isnumeric():
+        if isValidHexadecimal(name[1:]):
             return "0x" + name[1:]
         else:
-            return getConstant(constants[name[1:]].upper())
+            return getConstant(constants[name[1:].upper()])
+    return name
 
 
 def preprocess(input_file, offset):
@@ -329,6 +336,7 @@ def preprocess(input_file, offset):
     relative_path = dirname(abspath(input_file))
 
     global labels
+    global constants
     starting_address = offset;
     lines = []
     # Preprocess
@@ -346,7 +354,11 @@ def preprocess(input_file, offset):
             continue
 
         if len(words) == 3 and words[0].upper() == ".DEFINE":
+            if isValidHexadecimal(words[1]):
+                    raise ValueError("\"{}\" is an invalid definition name since it could be mixed up with an hexadecimal value".format(words[1]))
+
             constants[words[1].upper()] = words[2]
+            print(constants)
             continue
         
         if ':' in line_without_comment:
@@ -361,7 +373,7 @@ def preprocess(input_file, offset):
                 if words[i].startswith("$") and len(words[i]) > 2:
                     words[i] = getConstant(words[i])
 
-            res = " ".join(words)
+            res = " ".join(words).replace("$", "0x")
             lines.append(res)
             instruction = Instruction(res, None)
             print("Line: " + line)
