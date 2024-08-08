@@ -15,6 +15,15 @@ def padTo(args, addr):
 labels = {}
 constants = {}
 
+def absolute16bAddrToRelative8b(absolute_addr, base_addr):
+    print(absolute_addr, base_addr)
+    if absolute_addr == -1:
+            return 0
+    new_addr = (absolute_addr - base_addr - 2)
+    if new_addr < -127 or new_addr > 128:
+        raise ValueError("JR is too far from its destination. Please use JP instead")
+    return new_addr & 0xff
+
 instructions = [
     { "opcode": "LD", "params": [
         { "type": ["r", "r"], "format": lambda args, _: [0b01000000 | (args[0] << 3) | args[1]] },
@@ -122,11 +131,11 @@ instructions = [
     ]},
     { "opcode": "JR", "params": [
         { "type": ["8b"], "format": lambda args, _: [0b00011000, args[0]] },
-        { "type": ["16b"], "format": lambda args, addr: [0b00011000, (args[0] - addr - 2) & 0xff] },
+        { "type": ["16b"], "format": lambda args, addr: [0b00011000, absolute16bAddrToRelative8b(args[0], addr)] },
         { "type": ["cc", "8b"], "format": lambda args, _: [0b00100000 | (args[0] << 3), args[1]] },
         { "type": ["C", "8b"], "format": lambda args, _: [0b00100000 | (3 << 3), args[1]] },
-        { "type": ["cc", "16b"], "format": lambda args, addr: [0b00100000 | (args[0] << 3), (args[1] - addr - 2) & 0xff] },
-        { "type": ["C", "16b"], "format": lambda args, addr: [0b00100000 | (3 << 3), (args[1] - addr - 2) & 0xff] }
+        { "type": ["cc", "16b"], "format": lambda args, addr: [0b00100000 | (args[0] << 3), absolute16bAddrToRelative8b(args[1], addr)] },
+        { "type": ["C", "16b"], "format": lambda args, addr: [0b00100000 | (3 << 3), absolute16bAddrToRelative8b(args[1], addr)] }
     ]},
     { "opcode": "CALL", "params": [
         { "type": ["16b"], "format": lambda args, _: [0b11001101, args[0] & 0xff, args[0] >> 8] },
@@ -271,7 +280,7 @@ class Param:
             return [input], 0
         elif input.startswith('='):
             if labels is None:
-                return ['16b'], 0
+                return ['16b'], -1
             else:
                 return ['16b'], labels[input[1:]]
         else:
@@ -391,6 +400,7 @@ def assemble(lines):
     # Compile
     for line in lines:
         instruction = Instruction(line, labels)
+        print("Line: " + line)
         print("Instruction: " + instruction.opcode + " " + str(instruction.params))
         print("Valid: " + str(instruction.get_instruction_format()))
         print("Format: " + str(instruction))
