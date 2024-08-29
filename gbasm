@@ -372,7 +372,10 @@ def preprocess(input_file, offset):
         
         if ':' in line_without_comment:
             splitted = line_without_comment.split(':')
-            labels[splitted[0].strip().upper()] = starting_address
+            labelName = splitted[0].strip().upper()
+            if labelName in labels:
+                raise ValueError("Label \"{}\" is already defined".format(labelName))
+            labels[labelName] = starting_address
             line_without_comment = splitted[1].strip()
 
         if line_without_comment != '':
