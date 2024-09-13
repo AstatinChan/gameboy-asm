@@ -127,7 +127,8 @@ instructions = [
     { "opcode": "JP", "params": [
         { "type": ["16b"], "format": lambda args, _: [0b11000011, args[0] & 0xff, args[0] >> 8] },
         { "type": ["HL"], "format": lambda args, _: [0b11101001] },
-        { "type": ["cc", "16b"], "format": lambda args, _: [0b11000010 | (args[0] << 3), args[1] & 0xff, args[1] >> 8] }
+        { "type": ["cc", "16b"], "format": lambda args, _: [0b11000010 | (args[0] << 3), args[1] & 0xff, args[1] >> 8] },
+        { "type": ["C", "16b"], "format": lambda args, _: [0b11000010 | (3 << 3), args[1] & 0xff, args[1] >> 8] }
     ]},
     { "opcode": "JR", "params": [
         { "type": ["8b"], "format": lambda args, _: [0b00011000, args[0]] },
@@ -139,11 +140,13 @@ instructions = [
     ]},
     { "opcode": "CALL", "params": [
         { "type": ["16b"], "format": lambda args, _: [0b11001101, args[0] & 0xff, args[0] >> 8] },
-        { "type": ["cc", "16b"], "format": lambda args, _: [0b11000100 | (args[0] << 3), args[1] & 0xff, args[1] >> 8] }
+        { "type": ["cc", "16b"], "format": lambda args, _: [0b11000100 | (args[0] << 3), args[1] & 0xff, args[1] >> 8] },
+        { "type": ["C", "16b"], "format": lambda args, _: [0b11000100 | (3 << 3), args[1] & 0xff, args[1] >> 8] }
     ]},
     { "opcode": "RET", "params": [
         { "type": [], "format": lambda args, _: [0b11001001] },
         { "type": ["cc"], "format": lambda args, _: [0b11000000 | (args[0] << 3)] },
+        { "type": ["C"], "format": lambda args, _: [0b11000000 | (3 << 3)] }
     ]},
     { "opcode": "RETI", "params": [
         { "type": [], "format": lambda args, _: [0b11011001] },
