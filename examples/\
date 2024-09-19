@@ -1,0 +1,27 @@
+.PADTO 0x0100
+Entry:
+	JP =Start
+
+.PADTO 0x0104
+Nintendo_Logo: ; The Nintendo logo must be stored in bytes 0x104-133
+	.DB $CE,$ED,$66,$66,$CC,$0D,$00,$0B,$03,$73,$00,$83,$00,$0C,$00,$0D 
+	.DB $00,$08,$11,$1F,$88,$89,$00,$0E,$DC,$CC,$6E,$E6,$DD,$DD,$D9,$99 
+	.DB $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3E 
+
+.PADTO 0x0134
+Checksum: ; The bytes 0x134-0x14d need to add up to 0xe7 (= 0xff - 0x19)
+	.DB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	.DB $00,$00,$00,$00,$00,$00,$00,$00,$00,$e7
+
+Start:
+	LD HL, $8000
+	VRAM_Clearing_Loop:
+		LD A, $00
+		LD (HL+), A
+		LD A, H
+		CP $A0
+		JR NZ, =VRAM_Clearing_Loop
+	
+	Lock:
+		JR =Lock
+
