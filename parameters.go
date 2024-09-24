@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func Reg8(_ *ProgramState, param string) (uint16, error) {
+func Reg8(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "A":
 		return 7, nil
@@ -28,35 +28,35 @@ func Reg8(_ *ProgramState, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg8")
 }
 
-func A(_ *ProgramState, param string) (uint16, error) {
+func A(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	if param == "A" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid A")
 }
 
-func HL(_ *ProgramState, param string) (uint16, error) {
+func HL(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	if param == "HL" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid HL")
 }
 
-func SP(_ *ProgramState, param string) (uint16, error) {
+func SP(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	if param == "SP" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid SP")
 }
 
-func IndirectC(_ *ProgramState, param string) (uint16, error) {
+func IndirectC(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	if param == "(C)" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid (C)")
 }
 
-func Reg16(_ *ProgramState, param string) (uint16, error) {
+func Reg16(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "BC":
 		return 0, nil
@@ -73,21 +73,60 @@ func Reg16(_ *ProgramState, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg16")
 }
 
-func Raw8(_ *ProgramState, param string) (uint16, error) {
-	res, err := strconv.ParseInt(param, 0, 8)
+func Raw8(_ *Labels, defs *Definitions, param string) (uint16, error) {
+	if strings.HasPrefix(param, "$") {
+		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
+		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
+			if len(param) > 2 {
+				return 0, fmt.Errorf("%s is > 8bit precision", param)
+			}
+			return uint16(res), nil
+		}
+
+		definition, ok := (*defs)[param]
+		if !ok {
+			return 0, fmt.Errorf("$%s is undefined", param)
+		}
+
+		res, ok := definition.(Raw8b)
+		if !ok {
+			return 0, fmt.Errorf("$%s is of type %T but Raw8b is expected", param, res)
+		}
+		return uint16(res), nil
+	}
+	if strings.HasPrefix(param, "0x") && len(param) > 4 {
+		return 0, fmt.Errorf("%s is > 8bit precision", param)
+	}
+	res, err := strconv.ParseUint(param, 0, 8)
 	return uint16(res), err
 }
 
-func Raw16(state *ProgramState, param string) (uint16, error) {
-	res, err := strconv.ParseInt(param, 0, 16)
+func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
+	if strings.HasPrefix(param, "$") {
+		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
+		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
+			return uint16(res), nil
+		}
+
+		definition, ok := (*defs)[param]
+		if !ok {
+			return 0, fmt.Errorf("$%s is undefined", param)
+		}
+
+		res, ok := definition.(Raw16b)
+		if !ok {
+			return 0, fmt.Errorf("$%s is of type %T but Raw16b is expected", param, res)
+		}
+		return uint16(res), nil
+	}
 
 	if strings.HasPrefix(param, "=") {
-		if state == nil {
+		if labels == nil {
 			return 0, nil
 		}
 
 		label := strings.ToUpper(strings.TrimPrefix(param, "="))
-		labelValue, ok := state.Labels[label]
+		labelValue, ok := (*labels)[label]
 		if !ok {
 			return 0, fmt.Errorf("Label \"%s\" not found", label)
 		}
@@ -100,10 +139,12 @@ func Raw16(state *ProgramState, param string) (uint16, error) {
 		return uint16(labelValue), nil
 	}
 
+	res, err := strconv.ParseUint(param, 0, 16)
+
 	return uint16(res), err
 }
 
-func Reg16Indirect(_ *ProgramState, param string) (uint16, error) {
+func Reg16Indirect(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "(BC)":
 		return 0, nil
@@ -117,25 +158,61 @@ func Reg16Indirect(_ *ProgramState, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg16 indirect")
 }
 
-func Raw8Indirect(_ *ProgramState, param string) (uint16, error) {
+func Raw8Indirect(labels *Labels, defs *Definitions, param string) (uint16, error) {
+	if strings.HasPrefix(param, "$") {
+		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
+
+		definition, ok := (*defs)[param]
+		if !ok {
+			return 0, fmt.Errorf("$%s is undefined", param)
+		}
+
+		res, ok := definition.(Indirect8b)
+		if !ok {
+			return 0, fmt.Errorf("$%s is of type %T but Indirect8bb is expected", param, res)
+		}
+		return uint16(res), nil
+	}
+
 	if len(param) < 2 || param[0] != '(' || param[len(param)-1] != ')' {
 		return 0, fmt.Errorf("Invalid raw8indirect")
 	}
 
-	res, err := strconv.ParseInt(param[1:len(param)-1], 0, 8)
-	return uint16(res), err
+	res, err := Raw8(labels, defs, param[1:len(param)-1])
+	if err == nil {
+		return res, nil
+	}
+	return 0, err
 }
 
-func Raw16Indirect(_ *ProgramState, param string) (uint16, error) {
+func Raw16Indirect(labels *Labels, defs *Definitions, param string) (uint16, error) {
+	if strings.HasPrefix(param, "$") {
+		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
+
+		if labels == nil {
+			return 0, nil
+		}
+
+		definition, ok := (*defs)[param]
+		if !ok {
+			return 0, fmt.Errorf("$%s is undefined", param)
+		}
+
+		res, ok := definition.(Indirect16b)
+		if !ok {
+			return 0, fmt.Errorf("$%s is of type %T but Indirect16b expected", param, res)
+		}
+		fmt.Println("YOU CAN LOOSE YOUR MIND NOW ! IT OFFICIALLY DOESN'T MAKE SENSE", param, res)
+		return uint16(res), nil
+	}
 	if len(param) < 2 || param[0] != '(' || param[len(param)-1] != ')' {
 		return 0, fmt.Errorf("Invalid raw16indirect")
 	}
 
-	res, err := strconv.ParseInt(param[1:len(param)-1], 0, 16)
-	return uint16(res), err
+	return Raw16(labels, defs, param[1:len(param)-1])
 }
 
-func Condition(_ *ProgramState, param string) (uint16, error) {
+func Condition(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "NZ":
 		return 0, nil
@@ -149,7 +226,7 @@ func Condition(_ *ProgramState, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid condition")
 }
 
-func BitOrdinal(_ *ProgramState, param string) (uint16, error) {
-	res, err := strconv.ParseInt(param, 0, 3)
+func BitOrdinal(_ *Labels, _ *Definitions, param string) (uint16, error) {
+	res, err := strconv.ParseUint(param, 0, 3)
 	return uint16(res), err
 }
