@@ -7,27 +7,49 @@ import (
 	"strings"
 )
 
+type (
+	Labels      map[string]uint
+	Definitions map[string]any
+)
+
 type ProgramState struct {
-	Labels map[string]uint
-	Defs   map[string]any
+	Labels Labels
+	Defs   Definitions
 }
 
-func parseFile(input_file_name string, input []byte) ([]byte, error) {
-	lines := strings.Split(string(input), "\n")
-
+func parseFile(input_file_name string, input []byte, offset uint) ([]byte, error) {
 	state := ProgramState{
 		Labels: make(map[string]uint),
 		Defs:   make(map[string]any),
 	}
 
-	label_line_number := uint(0)
-	for line_nb, line := range lines {
+	_, err := firstPass(input_file_name, input, offset, &state)
+	if err != nil {
+		return nil, err
+	}
+	return secondPass(input_file_name, input, offset, state)
+}
+
+func firstPass(
+	input_file_name string,
+	input []byte,
+	offset uint,
+	state *ProgramState,
+) ([]byte, error) {
+	lines := strings.Split(string(input), "\n")
+
+	line_nb := 0
+	result := []byte{}
+	for line_nb < len(lines) {
+		line := lines[line_nb]
+		line_parts := strings.Split(line, ";")
+		line = line_parts[0]
 		is_label_defined := strings.Contains(line, ":")
 
 		if is_label_defined {
 			parts := strings.Split(line, ":")
 			for _, label := range parts[:len(parts)-1] {
-				label = strings.ToUpper(label)
+				label = strings.TrimSpace(strings.ToUpper(label))
 				if _, ok := state.Labels[label]; ok {
 					fmt.Fprintf(
 						os.Stderr,
@@ -38,7 +60,7 @@ func parseFile(input_file_name string, input []byte) ([]byte, error) {
 					)
 					os.Exit(1)
 				}
-				state.Labels[label] = label_line_number
+				state.Labels[label] = uint(len(result)) + offset
 			}
 
 			line = parts[len(parts)-1]
@@ -46,22 +68,50 @@ func parseFile(input_file_name string, input []byte) ([]byte, error) {
 
 		line = strings.TrimSpace(line)
 
-		next_instruction, err := Instructions.Parse(nil, line)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"File %s, line %d (1st pass):\n%w",
-				input_file_name,
-				line_nb,
-				err,
-			)
-		}
+		// nil sets all the labels and defintion to 0 & thus, to not crash JR, the currentAddress should also be 0
+		if strings.HasPrefix(line, ".") {
+			err := MacroParse(line, &result, state, &line_nb, true, offset)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"File %s, line %d (1st pass|macro):\n%w",
+					input_file_name,
+					line_nb,
+					err,
+				)
+			}
+		} else {
+			next_instruction, err := Instructions.Parse(nil, &state.Defs, 0, line)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"File %s, line %d (1st pass):\n%w",
+					input_file_name,
+					line_nb,
+					err,
+				)
+			}
 
-		// TODO: Handle the case of program bigger than MBC (or maybe do it directly in the parameters)
-		label_line_number += uint(len(next_instruction))
+			result = append(result, next_instruction...)
+		}
+		line_nb += 1
 	}
 
+	return result, nil
+}
+
+func secondPass(
+	input_file_name string,
+	input []byte,
+	offset uint,
+	state ProgramState,
+) ([]byte, error) {
+	lines := strings.Split(string(input), "\n")
+
+	line_nb := 0
 	result := []byte{}
-	for line_nb, line := range lines {
+	for line_nb < len(lines) {
+		line := lines[line_nb]
+		line_parts := strings.Split(line, ";")
+		line = line_parts[0]
 		is_label_defined := strings.Contains(line, ":")
 
 		if is_label_defined {
@@ -70,17 +120,32 @@ func parseFile(input_file_name string, input []byte) ([]byte, error) {
 			line = parts[len(parts)-1]
 		}
 
-		next_instruction, err := Instructions.Parse(&state, line)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"File %s, line %d (2nd pass): %w",
-				input_file_name,
-				line_nb,
-				err,
-			)
-		}
+		line = strings.TrimSpace(line)
 
-		result = append(result, next_instruction...)
+		if strings.HasPrefix(line, ".") {
+			err := MacroParse(line, &result, &state, &line_nb, false, offset)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"File %s, line %d (2nd pass|macro):\n%w",
+					input_file_name,
+					line_nb,
+					err,
+				)
+			}
+		} else {
+			next_instruction, err := Instructions.Parse(&state.Labels, &state.Defs, uint16(uint(len(result))+offset), line)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"File %s, line %d (2nd pass): %w",
+					input_file_name,
+					line_nb,
+					err,
+				)
+			}
+
+			result = append(result, next_instruction...)
+		}
+		line_nb += 1
 	}
 
 	return result, nil
@@ -107,7 +172,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	result, err := parseFile(input_file_name, input)
+	result, err := parseFile(input_file_name, input, 0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 		os.Exit(1)
