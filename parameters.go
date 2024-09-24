@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
-func Reg8(param string) (uint16, error) {
+func Reg8(_ *ProgramState, param string) (uint16, error) {
 	switch param {
 	case "A":
 		return 7, nil
@@ -27,35 +28,35 @@ func Reg8(param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg8")
 }
 
-func A(param string) (uint16, error) {
+func A(_ *ProgramState, param string) (uint16, error) {
 	if param == "A" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid A")
 }
 
-func HL(param string) (uint16, error) {
+func HL(_ *ProgramState, param string) (uint16, error) {
 	if param == "HL" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid HL")
 }
 
-func SP(param string) (uint16, error) {
+func SP(_ *ProgramState, param string) (uint16, error) {
 	if param == "SP" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid SP")
 }
 
-func IndirectC(param string) (uint16, error) {
+func IndirectC(_ *ProgramState, param string) (uint16, error) {
 	if param == "(C)" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid (C)")
 }
 
-func Reg16(param string) (uint16, error) {
+func Reg16(_ *ProgramState, param string) (uint16, error) {
 	switch param {
 	case "BC":
 		return 0, nil
@@ -72,17 +73,37 @@ func Reg16(param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg16")
 }
 
-func Raw8(param string) (uint16, error) {
+func Raw8(_ *ProgramState, param string) (uint16, error) {
 	res, err := strconv.ParseInt(param, 0, 8)
 	return uint16(res), err
 }
 
-func Raw16(param string) (uint16, error) {
+func Raw16(state *ProgramState, param string) (uint16, error) {
 	res, err := strconv.ParseInt(param, 0, 16)
+
+	if strings.HasPrefix(param, "=") {
+		if state == nil {
+			return 0, nil
+		}
+
+		label := strings.ToUpper(strings.TrimPrefix(param, "="))
+		labelValue, ok := state.Labels[label]
+		if !ok {
+			return 0, fmt.Errorf("Label \"%s\" not found", label)
+		}
+
+		// TODO: Manage when multiple MBC
+		if labelValue > 0x8000 {
+			panic("Switchable ROM banks are not implemented yet")
+		}
+
+		return uint16(labelValue), nil
+	}
+
 	return uint16(res), err
 }
 
-func Reg16Indirect(param string) (uint16, error) {
+func Reg16Indirect(_ *ProgramState, param string) (uint16, error) {
 	switch param {
 	case "(BC)":
 		return 0, nil
@@ -96,7 +117,7 @@ func Reg16Indirect(param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg16 indirect")
 }
 
-func Raw8Indirect(param string) (uint16, error) {
+func Raw8Indirect(_ *ProgramState, param string) (uint16, error) {
 	if len(param) < 2 || param[0] != '(' || param[len(param)-1] != ')' {
 		return 0, fmt.Errorf("Invalid raw8indirect")
 	}
@@ -105,7 +126,7 @@ func Raw8Indirect(param string) (uint16, error) {
 	return uint16(res), err
 }
 
-func Raw16Indirect(param string) (uint16, error) {
+func Raw16Indirect(_ *ProgramState, param string) (uint16, error) {
 	if len(param) < 2 || param[0] != '(' || param[len(param)-1] != ')' {
 		return 0, fmt.Errorf("Invalid raw16indirect")
 	}
@@ -114,7 +135,7 @@ func Raw16Indirect(param string) (uint16, error) {
 	return uint16(res), err
 }
 
-func Condition(param string) (uint16, error) {
+func Condition(_ *ProgramState, param string) (uint16, error) {
 	switch param {
 	case "NZ":
 		return 0, nil
@@ -128,7 +149,7 @@ func Condition(param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid condition")
 }
 
-func BitOrdinal(param string) (uint16, error) {
+func BitOrdinal(_ *ProgramState, param string) (uint16, error) {
 	res, err := strconv.ParseInt(param, 0, 3)
 	return uint16(res), err
 }
