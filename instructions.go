@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type ParamType func(param string) (uint16, error)
+type ParamType func(state *ProgramState, param string) (uint16, error)
 
 type InstructionParams struct {
 	Types     []ParamType
@@ -392,7 +392,10 @@ func InstructionSetNew() InstructionSet {
 	return result
 }
 
-func (set InstructionSet) Parse(line string) ([]byte, error) {
+func (set InstructionSet) Parse(
+	state *ProgramState,
+	line string,
+) ([]byte, error) {
 	words := strings.Fields(strings.ReplaceAll(strings.Trim(line, " \t\n"), ",", " "))
 
 	if len(words) < 1 {
@@ -414,7 +417,7 @@ instruction_param_loop:
 
 		parsed_params := make([]uint16, len(params))
 		for i, paramType := range instrParam.Types {
-			parsed, err := paramType(params[i])
+			parsed, err := paramType(state, params[i])
 			if err != nil {
 				continue instruction_param_loop
 			}

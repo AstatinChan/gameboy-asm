@@ -1,2 +1,4 @@
 LD D, A
-LD C, B
+Test:
+	LD C, B
+	JP =Test
