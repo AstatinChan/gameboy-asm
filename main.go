@@ -56,7 +56,7 @@ func firstPass(
 					return nil, fmt.Errorf(
 						"File %s, line %d:\nLabel %s is already defined",
 						input_file_name,
-						line_nb,
+						line_nb+1,
 						label,
 					)
 				}
@@ -83,7 +83,7 @@ func firstPass(
 				return nil, fmt.Errorf(
 					"File %s, line %d (1st pass|macro):\n%w",
 					input_file_name,
-					line_nb,
+					line_nb+1,
 					err,
 				)
 			}
@@ -93,7 +93,7 @@ func firstPass(
 				return nil, fmt.Errorf(
 					"File %s, line %d (1st pass):\n%w",
 					input_file_name,
-					line_nb,
+					line_nb+1,
 					err,
 				)
 			}
@@ -136,7 +136,7 @@ func secondPass(
 				return nil, fmt.Errorf(
 					"File %s, line %d (2nd pass|macro):\n%w",
 					input_file_name,
-					line_nb,
+					line_nb+1,
 					err,
 				)
 			}
@@ -146,7 +146,7 @@ func secondPass(
 				return nil, fmt.Errorf(
 					"File %s, line %d (2nd pass): %w",
 					input_file_name,
-					line_nb,
+					line_nb+1,
 					err,
 				)
 			}
