@@ -13,14 +13,16 @@ type (
 )
 
 type ProgramState struct {
-	Labels Labels
-	Defs   Definitions
+	Labels  Labels
+	Defs    Definitions
+	IsMacro bool
 }
 
 func parseFile(input_file_name string, input []byte, offset uint) ([]byte, error) {
 	state := ProgramState{
-		Labels: make(map[string]uint),
-		Defs:   make(map[string]any),
+		Labels:  make(map[string]uint),
+		Defs:    make(map[string]any),
+		IsMacro: false,
 	}
 
 	_, err := firstPass(input_file_name, input, offset, &state)
@@ -51,15 +53,21 @@ func firstPass(
 			for _, label := range parts[:len(parts)-1] {
 				label = strings.TrimSpace(strings.ToUpper(label))
 				if _, ok := state.Labels[label]; ok {
-					fmt.Fprintf(
-						os.Stderr,
+					return nil, fmt.Errorf(
 						"File %s, line %d:\nLabel %s is already defined",
 						input_file_name,
 						line_nb,
 						label,
 					)
-					os.Exit(1)
 				}
+
+				if label[0] == '$' && !state.IsMacro {
+					return nil, fmt.Errorf("Labels starting with $ can only be used inside macros")
+				}
+				if label[0] != '$' && state.IsMacro {
+					return nil, fmt.Errorf("Labels inside a macro must start with $")
+				}
+
 				state.Labels[label] = uint(len(result)) + offset
 			}
 
@@ -70,7 +78,7 @@ func firstPass(
 
 		// nil sets all the labels and defintion to 0 & thus, to not crash JR, the currentAddress should also be 0
 		if strings.HasPrefix(line, ".") {
-			err := MacroParse(line, &result, state, &line_nb, true, offset)
+			err := MacroParse(line, lines, &result, state, &line_nb, true, offset)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"File %s, line %d (1st pass|macro):\n%w",
@@ -80,7 +88,7 @@ func firstPass(
 				)
 			}
 		} else {
-			next_instruction, err := Instructions.Parse(nil, &state.Defs, 0, line)
+			next_instruction, err := Instructions.Parse(nil, &state.Defs, state.IsMacro, 0, line)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"File %s, line %d (1st pass):\n%w",
@@ -123,7 +131,7 @@ func secondPass(
 		line = strings.TrimSpace(line)
 
 		if strings.HasPrefix(line, ".") {
-			err := MacroParse(line, &result, &state, &line_nb, false, offset)
+			err := MacroParse(line, lines, &result, &state, &line_nb, false, offset)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"File %s, line %d (2nd pass|macro):\n%w",
@@ -133,7 +141,7 @@ func secondPass(
 				)
 			}
 		} else {
-			next_instruction, err := Instructions.Parse(&state.Labels, &state.Defs, uint16(uint(len(result))+offset), line)
+			next_instruction, err := Instructions.Parse(&state.Labels, &state.Defs, state.IsMacro, uint16(uint(len(result))+offset), line)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"File %s, line %d (2nd pass): %w",

@@ -8,9 +8,10 @@ import (
 type ParamType func(labels *Labels, defs *Definitions, param string) (uint16, error)
 
 type InstructionParams struct {
-	Types     []ParamType
-	Assembler func(currentAddress uint16, args []uint16) ([]uint8, error)
-	Wildcard  bool
+	Types          []ParamType
+	Assembler      func(currentAddress uint16, args []uint16) ([]uint8, error)
+	Wildcard       bool
+	MacroForbidden bool
 }
 
 type InstructionSet map[string][]InstructionParams
@@ -283,7 +284,26 @@ func InstructionSetNew() InstructionSet {
 				return []byte{0b00100000 | (uint8(args[0]) << 3), uint8(args[1])}, nil
 			},
 		},
-		// TODO: Add the relative thingies somehow
+		{
+			Types: []ParamType{MacroLabel},
+			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+				relativeAddress, err := absoluteJPValueToRelative(currentAddress, args[0])
+				if err != nil {
+					return nil, err
+				}
+				return []byte{0b00011000, relativeAddress}, nil
+			},
+		},
+		{
+			Types: []ParamType{Condition, MacroLabel},
+			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+				relativeAddress, err := absoluteJPValueToRelative(currentAddress, args[1])
+				if err != nil {
+					return nil, err
+				}
+				return []byte{0b00100000 | (uint8(args[0]) << 3), relativeAddress}, nil
+			},
+		},
 		{
 			Types: []ParamType{Raw16},
 			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
@@ -293,6 +313,7 @@ func InstructionSetNew() InstructionSet {
 				}
 				return []byte{0b00011000, relativeAddress}, nil
 			},
+			MacroForbidden: true,
 		},
 		{
 			Types: []ParamType{Condition, Raw16},
@@ -303,6 +324,7 @@ func InstructionSetNew() InstructionSet {
 				}
 				return []byte{0b00100000 | (uint8(args[0]) << 3), relativeAddress}, nil
 			},
+			MacroForbidden: true,
 		},
 	}
 	result["CALL"] = []InstructionParams{
@@ -494,6 +516,7 @@ func InstructionSetNew() InstructionSet {
 func (set InstructionSet) Parse(
 	labels *Labels,
 	defs *Definitions,
+	isMacro bool,
 	currentAddress uint16,
 	line string,
 ) ([]byte, error) {
@@ -531,6 +554,10 @@ instruction_param_loop:
 			}
 
 			parsed_params[i] = parsed
+		}
+
+		if instrParam.MacroForbidden && isMacro {
+			return nil, fmt.Errorf("This instruction cannot be used with this set of params inside of a macro")
 		}
 
 		return instrParam.Assembler(currentAddress, parsed_params)

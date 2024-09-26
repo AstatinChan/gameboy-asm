@@ -10,6 +10,17 @@ import (
 
 var MacroInstructions = NewInstructionSetMacros()
 
+func InlineMacroAssembler(b []byte) []InstructionParams {
+	return []InstructionParams{
+		{
+			Types: []ParamType{},
+			Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+				return b, nil
+			},
+		},
+	}
+}
+
 func NewInstructionSetMacros() InstructionSet {
 	result := make(InstructionSet)
 
@@ -17,14 +28,9 @@ func NewInstructionSetMacros() InstructionSet {
 		{
 			Types: []ParamType{Raw16},
 			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
-				fmt.Printf(
-					".PADTO 0x%04x, currentAddress: 0x%04x, inserting: 0x%04x\n",
-					args[0],
-					currentAddress,
-					args[0]-currentAddress,
-				)
 				return make([]byte, args[0]-currentAddress), nil
 			},
+			MacroForbidden: true,
 		},
 	}
 
@@ -54,9 +60,10 @@ type (
 
 func MacroParse(
 	line string,
+	lines []string,
 	result *[]byte,
 	state *ProgramState,
-	_ *int, // line_nb
+	line_nb *int, // line_nb
 	is_first_pass bool,
 	offset uint,
 ) error {
@@ -71,6 +78,7 @@ func MacroParse(
 		new_instruction, err := MacroInstructions.Parse(
 			&state.Labels,
 			&state.Defs,
+			state.IsMacro,
 			uint16(uint(len(*result))+offset),
 			line,
 		)
@@ -80,7 +88,7 @@ func MacroParse(
 
 		*result = append(*result, new_instruction...)
 		return nil
-	} else if macroName == ".INCLUDE" {
+	} else if macroName == ".INCLUDE" && !state.IsMacro {
 		filePath := strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, ".INCLUDE")), "\"'")
 
 		input_file, err := os.Open(filePath)
@@ -107,7 +115,7 @@ func MacroParse(
 			}
 			*result = append(*result, included...)
 		}
-	} else if macroName == ".DEFINE" {
+	} else if macroName == ".DEFINE" && !state.IsMacro {
 		if len(words) != 3 {
 			return fmt.Errorf(".DEFINE must have 2 arguments (%v)", words)
 		}
@@ -132,8 +140,56 @@ func MacroParse(
 		}
 
 		state.Defs[name] = definedValue
+	} else if macroName == ".MACRODEF" && !state.IsMacro {
+		if len(words) != 2 {
+			return fmt.Errorf(".MACRODEF should have one argument, followed by the definition")
+		}
+		definedMacroName := strings.ToUpper(words[1])
+		(*line_nb) += 1
+		macroContent := []byte{}
+		for *line_nb < len(lines) && strings.TrimSpace(strings.Split(lines[*line_nb], ";")[0]) != ".END" {
+			macroContent = append(macroContent, (lines[*line_nb] + "\n")...)
+			(*line_nb) += 1
+		}
+
+		state := ProgramState{
+			Labels:  Clone(state.Labels),
+			Defs:    Clone(state.Defs),
+			IsMacro: true,
+		}
+
+		if is_first_pass {
+			if _, ok := MacroInstructions[definedMacroName]; ok {
+				return fmt.Errorf("Macro %s is already defined", definedMacroName)
+			}
+
+			new_instructions, err := firstPass("MACRO$"+definedMacroName, macroContent, 0, &state)
+			if err != nil {
+				return err
+			}
+			MacroInstructions["."+definedMacroName] = InlineMacroAssembler(new_instructions)
+		} else {
+			_, err := firstPass("MACRO$"+definedMacroName, macroContent, 0, &state)
+			if err != nil {
+				return err
+			}
+			new_instructions, err := secondPass("MACRO$"+definedMacroName, macroContent, offset, state)
+			if err != nil {
+				return err
+			}
+			MacroInstructions["."+definedMacroName] = InlineMacroAssembler(new_instructions)
+
+		}
 	} else {
 		return fmt.Errorf("Unknown macro \"%s\"", macroName)
 	}
 	return nil
+}
+
+func Clone[K comparable, V any](arg map[K]V) map[K]V {
+	result := make(map[K]V)
+	for k, v := range arg {
+		result[k] = v
+	}
+	return result
 }
