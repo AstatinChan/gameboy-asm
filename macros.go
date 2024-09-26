@@ -173,7 +173,7 @@ func MacroParse(
 			if err != nil {
 				return err
 			}
-			new_instructions, err := secondPass("MACRO$"+definedMacroName, macroContent, offset, state)
+			new_instructions, err := secondPass("MACRO$"+definedMacroName, macroContent, 0, state)
 			if err != nil {
 				return err
 			}
