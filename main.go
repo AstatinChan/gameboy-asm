@@ -53,7 +53,7 @@ func firstPass(
 			parts := strings.Split(line, ":")
 			for _, label := range parts[:len(parts)-1] {
 				label = strings.TrimSpace(strings.ToUpper(label))
-				isCharsetAllowed := regexp.MustCompile(`^[a-zA-Z0-9_-]*$`).MatchString(label)
+				isCharsetAllowed := regexp.MustCompile(`^[a-zA-Z0-9_.$-]*$`).MatchString(label)
 				if !isCharsetAllowed {
 					return nil, fmt.Errorf(
 						"File %s, line %d:\nLabel \"%s\" contains special characters. Only alphanumeric, dashes and underscores are allowed",
