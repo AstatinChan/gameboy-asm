@@ -285,26 +285,6 @@ func InstructionSetNew() InstructionSet {
 			},
 		},
 		{
-			Types: []ParamType{MacroLabel},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
-				relativeAddress, err := absoluteJPValueToRelative(currentAddress, args[0])
-				if err != nil {
-					return nil, err
-				}
-				return []byte{0b00011000, relativeAddress}, nil
-			},
-		},
-		{
-			Types: []ParamType{Condition, MacroLabel},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
-				relativeAddress, err := absoluteJPValueToRelative(currentAddress, args[1])
-				if err != nil {
-					return nil, err
-				}
-				return []byte{0b00100000 | (uint8(args[0]) << 3), relativeAddress}, nil
-			},
-		},
-		{
 			Types: []ParamType{Raw16},
 			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
 				relativeAddress, err := absoluteJPValueToRelative(currentAddress, args[0])
@@ -313,7 +293,6 @@ func InstructionSetNew() InstructionSet {
 				}
 				return []byte{0b00011000, relativeAddress}, nil
 			},
-			MacroForbidden: true,
 		},
 		{
 			Types: []ParamType{Condition, Raw16},
@@ -324,7 +303,6 @@ func InstructionSetNew() InstructionSet {
 				}
 				return []byte{0b00100000 | (uint8(args[0]) << 3), relativeAddress}, nil
 			},
-			MacroForbidden: true,
 		},
 	}
 	result["CALL"] = []InstructionParams{

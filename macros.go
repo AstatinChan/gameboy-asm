@@ -152,33 +152,51 @@ func MacroParse(
 			(*line_nb) += 1
 		}
 
-		state := ProgramState{
-			Labels:  Clone(state.Labels),
-			Defs:    Clone(state.Defs),
-			IsMacro: true,
-		}
-
 		if is_first_pass {
 			if _, ok := MacroInstructions[definedMacroName]; ok {
 				return fmt.Errorf("Macro %s is already defined", definedMacroName)
 			}
 
-			new_instructions, err := firstPass("MACRO$"+definedMacroName, macroContent, 0, &state)
-			if err != nil {
-				return err
+			MacroInstructions["."+definedMacroName] = []InstructionParams{
+				{
+					Types: []ParamType{},
+					Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+						state := ProgramState{
+							Labels:  Clone(state.Labels),
+							Defs:    Clone(state.Defs),
+							IsMacro: true,
+						}
+						new_instructions, err := firstPass("MACRO$"+definedMacroName, macroContent, 0, &state)
+						if err != nil {
+							return nil, err
+						}
+						return new_instructions, nil
+					},
+				},
 			}
-			MacroInstructions["."+definedMacroName] = InlineMacroAssembler(new_instructions)
 		} else {
-			_, err := firstPass("MACRO$"+definedMacroName, macroContent, 0, &state)
-			if err != nil {
-				return err
-			}
-			new_instructions, err := secondPass("MACRO$"+definedMacroName, macroContent, 0, state)
-			if err != nil {
-				return err
-			}
-			MacroInstructions["."+definedMacroName] = InlineMacroAssembler(new_instructions)
+			MacroInstructions["."+definedMacroName] = []InstructionParams{
+				{
+					Types: []ParamType{},
+					Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+						state := ProgramState{
+							Labels:  Clone(state.Labels),
+							Defs:    Clone(state.Defs),
+							IsMacro: true,
+						}
+						_, err := firstPass("MACRO$"+definedMacroName, macroContent, uint(currentAddress), &state)
+						if err != nil {
+							return nil, err
+						}
+						new_instructions, err := secondPass("MACRO$"+definedMacroName, macroContent, uint(currentAddress), state)
+						if err != nil {
+							return nil, err
+						}
 
+						return new_instructions, nil
+					},
+				},
+			}
 		}
 	} else {
 		return fmt.Errorf("Unknown macro \"%s\"", macroName)

@@ -120,7 +120,7 @@ func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
 		return uint16(res), nil
 	}
 
-	if strings.HasPrefix(param, "=") && !strings.HasPrefix(param, "=$") {
+	if strings.HasPrefix(param, "=") {
 		if labels == nil {
 			return 0, nil
 		}
@@ -142,23 +142,6 @@ func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
 	res, err := strconv.ParseUint(param, 0, 16)
 
 	return uint16(res), err
-}
-
-func MacroLabel(labels *Labels, defs *Definitions, param string) (uint16, error) {
-	if strings.HasPrefix(param, "=$") {
-		if labels == nil {
-			return 0, nil
-		}
-
-		label := strings.ToUpper(strings.TrimPrefix(param, "="))
-		labelValue, ok := (*labels)[label]
-		if !ok {
-			return 0, fmt.Errorf("Label \"%s\" not found", label)
-		}
-
-		return uint16(labelValue), nil
-	}
-	return 0, fmt.Errorf("Invalid macro label")
 }
 
 func Reg16Indirect(_ *Labels, _ *Definitions, param string) (uint16, error) {
