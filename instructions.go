@@ -487,6 +487,14 @@ func InstructionSetNew() InstructionSet {
 			},
 		},
 	}
+	result["DBG"] = []InstructionParams{
+		{
+			Types: []ParamType{},
+			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+				return []byte{0b11010011}, nil
+			},
+		},
+	}
 
 	return result
 }
