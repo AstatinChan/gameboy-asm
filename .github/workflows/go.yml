@@ -35,3 +35,4 @@ jobs:
         title: "Development Build"
         files: |
           gbasm_linux-x86_64
+          LICENSE
