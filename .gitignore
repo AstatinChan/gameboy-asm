@@ -1,1 +1,3 @@
 gameboy-asm
+examples/*.rom
+examples/*.rom.sav
