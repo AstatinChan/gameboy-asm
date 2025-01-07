@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type ParamType func(labels *Labels, defs *Definitions, param string) (uint16, error)
+type ParamType func(labels *Labels, lastAbsoluteLabel string, defs *Definitions, param string) (uint16, error)
 
 type InstructionParams struct {
 	Types            []ParamType
@@ -506,6 +506,7 @@ func (set InstructionSet) Parse(
 	isMacro bool,
 	isFirstPass bool,
 	currentAddress uint16,
+	lastAbsoluteLabel string,
 	line string,
 ) ([]byte, error) {
 	words := strings.Fields(strings.ReplaceAll(strings.Trim(line, " \t\n"), ",", " "))
@@ -541,7 +542,7 @@ instruction_param_loop:
 			if isFirstPass && !instrParam.LabelsBeforeOnly {
 				accessibleLabels = nil
 			}
-			parsed, err := paramType(accessibleLabels, defs, params[i])
+			parsed, err := paramType(accessibleLabels, lastAbsoluteLabel, defs, params[i])
 			if err != nil {
 				continue instruction_param_loop
 			}

@@ -87,6 +87,7 @@ func MacroParse(
 	lineNb *int,
 	isFirstPass bool,
 	offset uint,
+	LastAbsoluteLabel string,
 ) error {
 	words := strings.Split(line, " ")
 	if len(words) == 0 {
@@ -102,6 +103,7 @@ func MacroParse(
 			state.IsMacro,
 			isFirstPass,
 			uint16(uint(len(*result))+offset),
+			LastAbsoluteLabel,
 			line,
 		)
 		if err != nil {
@@ -149,13 +151,13 @@ func MacroParse(
 		}
 
 		var definedValue any
-		if v, err := Raw8Indirect(&state.Labels, &state.Defs, words[2]); err == nil {
+		if v, err := Raw8Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
 			definedValue = Indirect8b(v)
-		} else if v, err := Raw16Indirect(&state.Labels, &state.Defs, words[2]); err == nil {
+		} else if v, err := Raw16Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
 			definedValue = Indirect16b(v)
-		} else if v, err := Raw8(&state.Labels, &state.Defs, words[2]); err == nil {
+		} else if v, err := Raw8(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
 			definedValue = Raw8b(v)
-		} else if v, err := Raw16(&state.Labels, &state.Defs, words[2]); err == nil {
+		} else if v, err := Raw16(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
 			definedValue = Raw16b(v)
 		} else {
 			return fmt.Errorf("\"%s\" could not be parsed as a .DEFINE argument", words[2])

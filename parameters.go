@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func Reg8(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func Reg8(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "A":
 		return 7, nil
@@ -28,35 +28,35 @@ func Reg8(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg8")
 }
 
-func A(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func A(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	if param == "A" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid A")
 }
 
-func HL(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func HL(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	if param == "HL" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid HL")
 }
 
-func SP(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func SP(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	if param == "SP" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid SP")
 }
 
-func IndirectC(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func IndirectC(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	if param == "(C)" {
 		return 0, nil
 	}
 	return 0, fmt.Errorf("Invalid (C)")
 }
 
-func Reg16(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func Reg16(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "BC":
 		return 0, nil
@@ -73,7 +73,7 @@ func Reg16(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg16")
 }
 
-func Raw8(_ *Labels, defs *Definitions, param string) (uint16, error) {
+func Raw8(_ *Labels, lastAbsoluteLabel string, defs *Definitions, param string) (uint16, error) {
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
@@ -101,7 +101,12 @@ func Raw8(_ *Labels, defs *Definitions, param string) (uint16, error) {
 	return uint16(res), err
 }
 
-func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
+func Raw16(
+	labels *Labels,
+	lastAbsoluteLabel string,
+	defs *Definitions,
+	param string,
+) (uint16, error) {
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
@@ -122,14 +127,14 @@ func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
 
 	if strings.HasPrefix(param, "=") {
 		var offset uint16 = 0
-		labelWithoutOffset := param
+		labelWithoutOffset := param[1:]
 
 		if strings.Contains(param, "+") {
-			labelParts := strings.Split(param, "+")
+			labelParts := strings.Split(param[1:], "+")
 			if len(labelParts) != 2 {
 				return 0, fmt.Errorf(
 					"Labels with offset should have exactly 1 offset (in \"%s\")",
-					param,
+					param[1:],
 				)
 			}
 			labelWithoutOffset = labelParts[0]
@@ -142,6 +147,16 @@ func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
 
 		if labels == nil {
 			return 0, nil
+		}
+
+		if strings.HasPrefix(labelWithoutOffset, ".") {
+			if lastAbsoluteLabel == "" {
+				return 0, fmt.Errorf(
+					"Relative label \"%s\" referenced outside of parent",
+					labelWithoutOffset,
+				)
+			}
+			labelWithoutOffset = lastAbsoluteLabel + labelWithoutOffset
 		}
 
 		label := strings.ToUpper(strings.TrimPrefix(labelWithoutOffset, "="))
@@ -163,17 +178,27 @@ func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
 	return uint16(res), err
 }
 
-func Raw16MacroRelativeLabel(labels *Labels, defs *Definitions, param string) (uint16, error) {
+func Raw16MacroRelativeLabel(
+	labels *Labels,
+	lastAbsoluteLabel string,
+	defs *Definitions,
+	param string,
+) (uint16, error) {
 	if !strings.HasPrefix(param, "=$") {
 		return 0, fmt.Errorf(
 			"label \"%s\" is external to the macro",
 			param,
 		)
 	}
-	return Raw16(labels, defs, param)
+	return Raw16(labels, lastAbsoluteLabel, defs, param)
 }
 
-func Reg16Indirect(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func Reg16Indirect(
+	_ *Labels,
+	lastAbsoluteLabel string,
+	_ *Definitions,
+	param string,
+) (uint16, error) {
 	switch param {
 	case "(BC)":
 		return 0, nil
@@ -187,7 +212,12 @@ func Reg16Indirect(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid reg16 indirect")
 }
 
-func Raw8Indirect(labels *Labels, defs *Definitions, param string) (uint16, error) {
+func Raw8Indirect(
+	labels *Labels,
+	lastAbsoluteLabel string,
+	defs *Definitions,
+	param string,
+) (uint16, error) {
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 
@@ -207,14 +237,19 @@ func Raw8Indirect(labels *Labels, defs *Definitions, param string) (uint16, erro
 		return 0, fmt.Errorf("Invalid raw8indirect")
 	}
 
-	res, err := Raw8(labels, defs, param[1:len(param)-1])
+	res, err := Raw8(labels, lastAbsoluteLabel, defs, param[1:len(param)-1])
 	if err == nil {
 		return res, nil
 	}
 	return 0, err
 }
 
-func Raw16Indirect(labels *Labels, defs *Definitions, param string) (uint16, error) {
+func Raw16Indirect(
+	labels *Labels,
+	lastAbsoluteLabel string,
+	defs *Definitions,
+	param string,
+) (uint16, error) {
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 
@@ -237,10 +272,10 @@ func Raw16Indirect(labels *Labels, defs *Definitions, param string) (uint16, err
 		return 0, fmt.Errorf("Invalid raw16indirect")
 	}
 
-	return Raw16(labels, defs, param[1:len(param)-1])
+	return Raw16(labels, lastAbsoluteLabel, defs, param[1:len(param)-1])
 }
 
-func Condition(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func Condition(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "NZ":
 		return 0, nil
@@ -254,7 +289,7 @@ func Condition(_ *Labels, _ *Definitions, param string) (uint16, error) {
 	return 0, fmt.Errorf("Invalid condition")
 }
 
-func BitOrdinal(_ *Labels, _ *Definitions, param string) (uint16, error) {
+func BitOrdinal(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	res, err := strconv.ParseUint(param, 0, 3)
 	return uint16(res), err
 }
