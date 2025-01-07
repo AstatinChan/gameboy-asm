@@ -30,7 +30,16 @@ func NewInstructionSetMacros() InstructionSet {
 			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
 				return make([]byte, args[0]-currentAddress), nil
 			},
-			MacroForbidden: true,
+			MacroForbidden:   true,
+			LabelsBeforeOnly: true,
+		},
+		{
+			Types: []ParamType{Raw16MacroRelativeLabel},
+			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+				return make([]byte, args[0]-currentAddress), nil
+			},
+			MacroForbidden:   false,
+			LabelsBeforeOnly: true,
 		},
 	}
 
@@ -41,6 +50,18 @@ func NewInstructionSetMacros() InstructionSet {
 				result := make([]byte, len(args))
 				for i := range args {
 					result[i] = uint8(args[i])
+				}
+				return result, nil
+			},
+			Wildcard: true,
+		},
+		{
+			Types: []ParamType{Raw16},
+			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+				result := make([]byte, len(args)*2)
+				for i := range args {
+					result[i*2] = uint8(args[i] >> 8)
+					result[i*2+1] = uint8(args[i] & 0xff)
 				}
 				return result, nil
 			},
@@ -63,8 +84,8 @@ func MacroParse(
 	lines []string,
 	result *[]byte,
 	state *ProgramState,
-	line_nb *int, // line_nb
-	is_first_pass bool,
+	lineNb *int,
+	isFirstPass bool,
 	offset uint,
 ) error {
 	words := strings.Split(line, " ")
@@ -79,6 +100,7 @@ func MacroParse(
 			&state.Labels,
 			&state.Defs,
 			state.IsMacro,
+			isFirstPass,
 			uint16(uint(len(*result))+offset),
 			line,
 		)
@@ -102,7 +124,7 @@ func MacroParse(
 		}
 
 		fileStartOffset := uint(len(*result)) + offset
-		if is_first_pass {
+		if isFirstPass {
 			included, err := firstPass(filePath, input, fileStartOffset, state)
 			if err != nil {
 				return err
@@ -145,14 +167,14 @@ func MacroParse(
 			return fmt.Errorf(".MACRODEF should have one argument, followed by the definition")
 		}
 		definedMacroName := strings.ToUpper(words[1])
-		(*line_nb) += 1
+		(*lineNb) += 1
 		macroContent := []byte{}
-		for *line_nb < len(lines) && strings.TrimSpace(strings.Split(lines[*line_nb], ";")[0]) != ".END" {
-			macroContent = append(macroContent, (lines[*line_nb] + "\n")...)
-			(*line_nb) += 1
+		for *lineNb < len(lines) && strings.TrimSpace(strings.Split(lines[*lineNb], ";")[0]) != ".END" {
+			macroContent = append(macroContent, (lines[*lineNb] + "\n")...)
+			(*lineNb) += 1
 		}
 
-		if is_first_pass {
+		if isFirstPass {
 			if _, ok := MacroInstructions[definedMacroName]; ok {
 				return fmt.Errorf("Macro %s is already defined", definedMacroName)
 			}

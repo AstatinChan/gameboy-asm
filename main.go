@@ -43,6 +43,7 @@ func firstPass(
 
 	line_nb := 0
 	result := []byte{}
+	lastAbsoluteLabel := ""
 	for line_nb < len(lines) {
 		line := lines[line_nb]
 		line_parts := strings.Split(line, ";")
@@ -62,6 +63,25 @@ func firstPass(
 						label,
 					)
 				}
+
+				if strings.HasPrefix(label, ".") {
+					if lastAbsoluteLabel == "" {
+						return nil, fmt.Errorf(
+							"Relative label \"%s\" found without a parent",
+							label,
+						)
+					}
+
+					label = lastAbsoluteLabel + label
+				} else {
+					labelParts := strings.Split(label, ".")
+					if len(labelParts) < 1 {
+						return nil, fmt.Errorf("Unknown issue while retrieving label absolute part ! (label: \"%s\")", label)
+					}
+
+					lastAbsoluteLabel = labelParts[0]
+				}
+
 				if _, ok := state.Labels[label]; ok {
 					return nil, fmt.Errorf(
 						"File %s, line %d:\nLabel %s is already defined",
@@ -98,7 +118,7 @@ func firstPass(
 				)
 			}
 		} else {
-			next_instruction, err := Instructions.Parse(nil, &state.Defs, state.IsMacro, 0, line)
+			next_instruction, err := Instructions.Parse(&state.Labels, &state.Defs, state.IsMacro, true, 0, line)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"File %s, line %d (1st pass):\n%w",
@@ -151,7 +171,7 @@ func secondPass(
 				)
 			}
 		} else {
-			next_instruction, err := Instructions.Parse(&state.Labels, &state.Defs, state.IsMacro, uint16(uint(len(result))+offset), line)
+			next_instruction, err := Instructions.Parse(&state.Labels, &state.Defs, state.IsMacro, false, uint16(uint(len(result))+offset), line)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"File %s, line %d (2nd pass): %w",

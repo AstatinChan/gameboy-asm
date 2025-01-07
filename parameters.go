@@ -121,11 +121,30 @@ func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
 	}
 
 	if strings.HasPrefix(param, "=") {
+		var offset uint16 = 0
+		labelWithoutOffset := param
+
+		if strings.Contains(param, "+") {
+			labelParts := strings.Split(param, "+")
+			if len(labelParts) != 2 {
+				return 0, fmt.Errorf(
+					"Labels with offset should have exactly 1 offset (in \"%s\")",
+					param,
+				)
+			}
+			labelWithoutOffset = labelParts[0]
+			o, err := strconv.ParseUint(labelParts[1], 0, 16)
+			if err != nil {
+				return 0, fmt.Errorf("Error while parsing label offset: %w", err)
+			}
+			offset = uint16(o)
+		}
+
 		if labels == nil {
 			return 0, nil
 		}
 
-		label := strings.ToUpper(strings.TrimPrefix(param, "="))
+		label := strings.ToUpper(strings.TrimPrefix(labelWithoutOffset, "="))
 		labelValue, ok := (*labels)[label]
 		if !ok {
 			return 0, fmt.Errorf("Label \"%s\" not found", label)
@@ -136,12 +155,22 @@ func Raw16(labels *Labels, defs *Definitions, param string) (uint16, error) {
 			panic("Switchable ROM banks are not implemented yet")
 		}
 
-		return uint16(labelValue), nil
+		return uint16(labelValue) + offset, nil
 	}
 
 	res, err := strconv.ParseUint(param, 0, 16)
 
 	return uint16(res), err
+}
+
+func Raw16MacroRelativeLabel(labels *Labels, defs *Definitions, param string) (uint16, error) {
+	if !strings.HasPrefix(param, "=$") {
+		return 0, fmt.Errorf(
+			"label \"%s\" is external to the macro",
+			param,
+		)
+	}
+	return Raw16(labels, defs, param)
 }
 
 func Reg16Indirect(_ *Labels, _ *Definitions, param string) (uint16, error) {

@@ -8,10 +8,11 @@ import (
 type ParamType func(labels *Labels, defs *Definitions, param string) (uint16, error)
 
 type InstructionParams struct {
-	Types          []ParamType
-	Assembler      func(currentAddress uint16, args []uint16) ([]uint8, error)
-	Wildcard       bool
-	MacroForbidden bool
+	Types            []ParamType
+	Assembler        func(currentAddress uint16, args []uint16) ([]uint8, error)
+	Wildcard         bool
+	MacroForbidden   bool
+	LabelsBeforeOnly bool
 }
 
 type InstructionSet map[string][]InstructionParams
@@ -503,6 +504,7 @@ func (set InstructionSet) Parse(
 	labels *Labels,
 	defs *Definitions,
 	isMacro bool,
+	isFirstPass bool,
 	currentAddress uint16,
 	line string,
 ) ([]byte, error) {
@@ -534,7 +536,12 @@ instruction_param_loop:
 				paramType = instrParam.Types[i]
 			}
 
-			parsed, err := paramType(labels, defs, params[i])
+			accessibleLabels := labels
+
+			if isFirstPass && !instrParam.LabelsBeforeOnly {
+				accessibleLabels = nil
+			}
+			parsed, err := paramType(accessibleLabels, defs, params[i])
 			if err != nil {
 				continue instruction_param_loop
 			}
