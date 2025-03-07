@@ -165,15 +165,24 @@ func MacroParse(
 
 		state.Defs[name] = definedValue
 	} else if macroName == ".MACRODEF" && !state.IsMacro {
-		if len(words) != 2 {
-			return fmt.Errorf(".MACRODEF should have one argument, followed by the definition")
+		if len(words) < 2 {
+			return fmt.Errorf(".MACRODEF should have at least one argument, followed by the definition")
 		}
 		definedMacroName := strings.ToUpper(words[1])
+		definedMacroArguments := words[2:]
+		for i := range definedMacroArguments {
+			definedMacroArguments[i] = strings.ToUpper(definedMacroArguments[i])
+		}
 		(*lineNb) += 1
 		macroContent := []byte{}
 		for *lineNb < len(lines) && strings.TrimSpace(strings.Split(lines[*lineNb], ";")[0]) != ".END" {
 			macroContent = append(macroContent, (lines[*lineNb] + "\n")...)
 			(*lineNb) += 1
+		}
+
+		parameterTypes := make([]ParamType, len(definedMacroArguments))
+		for i := range definedMacroArguments {
+			parameterTypes[i] = Raw16
 		}
 
 		if isFirstPass {
@@ -183,11 +192,15 @@ func MacroParse(
 
 			MacroInstructions["."+definedMacroName] = []InstructionParams{
 				{
-					Types: []ParamType{},
+					Types: parameterTypes,
 					Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+						definitions := Clone(state.Defs)
+						for i, macroArg := range definedMacroArguments {
+							definitions[macroArg] = Raw16b(args[i])
+						}
 						state := ProgramState{
 							Labels:  Clone(state.Labels),
-							Defs:    Clone(state.Defs),
+							Defs:    definitions,
 							IsMacro: true,
 						}
 						new_instructions, err := firstPass("MACRO$"+definedMacroName, macroContent, 0, &state)
@@ -201,11 +214,15 @@ func MacroParse(
 		} else {
 			MacroInstructions["."+definedMacroName] = []InstructionParams{
 				{
-					Types: []ParamType{},
+					Types: parameterTypes,
 					Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+						definitions := Clone(state.Defs)
+						for i, macroArg := range definedMacroArguments {
+							definitions[macroArg] = Raw16b(args[i])
+						}
 						state := ProgramState{
 							Labels:  Clone(state.Labels),
-							Defs:    Clone(state.Defs),
+							Defs:    definitions,
 							IsMacro: true,
 						}
 						_, err := firstPass("MACRO$"+definedMacroName, macroContent, uint(currentAddress), &state)

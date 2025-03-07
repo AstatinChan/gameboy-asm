@@ -73,7 +73,26 @@ func Reg16(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (u
 	return 0, fmt.Errorf("Invalid reg16")
 }
 
-func Raw8(_ *Labels, lastAbsoluteLabel string, defs *Definitions, param string) (uint16, error) {
+func Raw8(
+	labels *Labels,
+	lastAbsoluteLabel string,
+	defs *Definitions,
+	param string,
+) (uint16, error) {
+	if strings.HasPrefix(param, "high(") && strings.HasSuffix(param, ")") {
+		v, err := Raw16(labels, lastAbsoluteLabel, defs, param[5:len(param)-1])
+		if err != nil {
+			return 0, err
+		}
+		return uint16(v >> 8), nil
+	}
+	if strings.HasPrefix(param, "low(") && strings.HasSuffix(param, ")") {
+		v, err := Raw16(labels, lastAbsoluteLabel, defs, param[4:len(param)-1])
+		if err != nil {
+			return 0, err
+		}
+		return uint16(v & 0xff), nil
+	}
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 		if res, err := strconv.ParseUint(param, 16, 16); err == nil {

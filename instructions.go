@@ -522,6 +522,7 @@ func (set InstructionSet) Parse(
 
 	params := words[1:]
 
+	var rejectedErrors error
 instruction_param_loop:
 	for _, instrParam := range instruction {
 		if !instrParam.Wildcard && len(instrParam.Types) != len(params) {
@@ -544,6 +545,12 @@ instruction_param_loop:
 			}
 			parsed, err := paramType(accessibleLabels, lastAbsoluteLabel, defs, params[i])
 			if err != nil {
+				rejectedError := fmt.Errorf("\t[Rejected] Param Type %v: %w\n", paramType, err)
+				if rejectedErrors == nil {
+					rejectedErrors = rejectedError
+				} else {
+					rejectedErrors = fmt.Errorf("%w%w", rejectedErrors, rejectedError)
+				}
 				continue instruction_param_loop
 			}
 
@@ -557,8 +564,9 @@ instruction_param_loop:
 		return instrParam.Assembler(currentAddress, parsed_params)
 	}
 	return nil, fmt.Errorf(
-		"Instruction \"%s\" doesn't have a parameter set that can parse \"%s\"",
+		"Instruction \"%s\" doesn't have a parameter set that can parse \"%s\"\n%w",
 		words[0],
 		line,
+		rejectedErrors,
 	)
 }

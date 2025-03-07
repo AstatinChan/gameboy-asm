@@ -19,6 +19,12 @@ type ProgramState struct {
 	IsMacro bool
 }
 
+func printSymbols(labels map[string]uint) {
+	for key, value := range labels {
+		fmt.Printf("00:%04x %s\n", value, key)
+	}
+}
+
 func parseFile(inputFileName string, input []byte, offset uint) ([]byte, error) {
 	state := ProgramState{
 		Labels:  make(map[string]uint),
@@ -30,6 +36,7 @@ func parseFile(inputFileName string, input []byte, offset uint) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
+	printSymbols(state.Labels)
 	return secondPass(inputFileName, input, offset, state)
 }
 
@@ -159,6 +166,7 @@ func secondPass(
 			line = parts[len(parts)-1]
 
 			for _, label := range parts[:len(parts)-1] {
+				label = strings.TrimSpace(strings.ToUpper(label))
 				if !strings.HasPrefix(label, ".") {
 					labelParts := strings.Split(label, ".")
 					if len(labelParts) < 1 {
