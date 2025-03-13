@@ -6,6 +6,26 @@ import (
 	"strings"
 )
 
+func parseOffset(param string) (string, uint16, error) {
+	if strings.Contains(param, "+") {
+		labelParts := strings.Split(param, "+")
+		if len(labelParts) != 2 {
+			return "", 0, fmt.Errorf(
+				"Labels with offset should have exactly 1 offset (in \"%s\")",
+				param,
+			)
+		}
+		labelWithoutOffset := labelParts[0]
+		o, err := strconv.ParseUint(labelParts[1], 0, 16)
+		if err != nil {
+			return "", 0, fmt.Errorf("Error while parsing label offset: %w", err)
+		}
+		offset := uint16(o)
+		return labelWithoutOffset, offset, nil
+	}
+	return param, 0, nil
+}
+
 func Reg8(_ *Labels, lastAbsoluteLabel string, _ *Definitions, param string) (uint16, error) {
 	switch param {
 	case "A":
@@ -97,24 +117,43 @@ func Raw8(
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
 			if len(param) > 2 {
-				return 0, fmt.Errorf("%s is > 8bit precision", param)
+				return 0, fmt.Errorf("%s is > 8bit", param)
 			}
 			return uint16(res), nil
 		}
 
-		definition, ok := (*defs)[param]
+		varWithoutOffset, offset, err := parseOffset(param)
+		if err != nil {
+			return 0, err
+		}
+
+		definition, ok := (*defs)[varWithoutOffset]
 		if !ok {
-			return 0, fmt.Errorf("$%s is undefined", param)
+			return 0, fmt.Errorf("$%s is undefined", varWithoutOffset)
 		}
 
 		res, ok := definition.(Raw8b)
 		if !ok {
-			return 0, fmt.Errorf("$%s is of type %T but Raw8b is expected", param, res)
+			return 0, fmt.Errorf(
+				"$%s is of type %T but Raw8b is expected",
+				varWithoutOffset,
+				definition,
+			)
 		}
-		return uint16(res), nil
+
+		if uint16(res)+offset > 0xff {
+			return 0, fmt.Errorf(
+				"overflow: $%s (0x%02x) + 0x%02x exceeds 0xff",
+				varWithoutOffset,
+				uint16(res),
+				offset,
+			)
+		}
+
+		return uint16(res) + offset, nil
 	}
 	if strings.HasPrefix(param, "0x") && len(param) > 4 {
-		return 0, fmt.Errorf("%s is > 8bit precision", param)
+		return 0, fmt.Errorf("%s is > 8bit", param)
 	}
 	res, err := strconv.ParseUint(param, 0, 8)
 	return uint16(res), err
@@ -132,36 +171,41 @@ func Raw16(
 			return uint16(res), nil
 		}
 
-		definition, ok := (*defs)[param]
+		varWithoutOffset, offset, err := parseOffset(param)
+		if err != nil {
+			return 0, err
+		}
+
+		definition, ok := (*defs)[varWithoutOffset]
 		if !ok {
-			return 0, fmt.Errorf("$%s is undefined", param)
+			return 0, fmt.Errorf("$%s is undefined", varWithoutOffset)
 		}
 
 		res, ok := definition.(Raw16b)
 		if !ok {
-			return 0, fmt.Errorf("$%s is of type %T but Raw16b is expected", param, res)
+			return 0, fmt.Errorf(
+				"$%s is of type %T but Raw16b is expected",
+				varWithoutOffset,
+				definition,
+			)
 		}
-		return uint16(res), nil
+
+		if uint32(res)+uint32(offset) > 0xffff {
+			return 0, fmt.Errorf(
+				"overflow: $%s (0x%04x) + 0x%04x exceeds 0xffff",
+				varWithoutOffset,
+				uint16(res),
+				offset,
+			)
+		}
+
+		return uint16(res) + offset, nil
 	}
 
 	if strings.HasPrefix(param, "=") {
-		var offset uint16 = 0
-		labelWithoutOffset := param[1:]
-
-		if strings.Contains(param, "+") {
-			labelParts := strings.Split(param[1:], "+")
-			if len(labelParts) != 2 {
-				return 0, fmt.Errorf(
-					"Labels with offset should have exactly 1 offset (in \"%s\")",
-					param[1:],
-				)
-			}
-			labelWithoutOffset = labelParts[0]
-			o, err := strconv.ParseUint(labelParts[1], 0, 16)
-			if err != nil {
-				return 0, fmt.Errorf("Error while parsing label offset: %w", err)
-			}
-			offset = uint16(o)
+		labelWithoutOffset, offset, err := parseOffset(param[1:])
+		if err != nil {
+			return 0, err
 		}
 
 		if labels == nil {
@@ -247,7 +291,7 @@ func Raw8Indirect(
 
 		res, ok := definition.(Indirect8b)
 		if !ok {
-			return 0, fmt.Errorf("$%s is of type %T but Indirect8bb is expected", param, res)
+			return 0, fmt.Errorf("$%s is of type %T but Indirect8bb is expected", param, definition)
 		}
 		return uint16(res), nil
 	}
@@ -283,7 +327,7 @@ func Raw16Indirect(
 
 		res, ok := definition.(Indirect16b)
 		if !ok {
-			return 0, fmt.Errorf("$%s is of type %T but Indirect16b expected", param, res)
+			return 0, fmt.Errorf("$%s is of type %T but Indirect16b expected", param, definition)
 		}
 		return uint16(res), nil
 	}
