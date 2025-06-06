@@ -21,7 +21,13 @@ type ProgramState struct {
 
 func printSymbols(labels map[string]uint) {
 	for key, value := range labels {
-		fmt.Printf("00:%04x %s\n", value, key)
+		if value < 0x4000 {
+			fmt.Printf("00:%04x %s\n", value, key)
+		} else {
+			bank := value / 0x4000
+			addr := value%0x4000 + 0x4000
+			fmt.Printf("%02x:%04x %s\n", bank, addr, key)
+		}
 	}
 }
 

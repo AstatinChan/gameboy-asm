@@ -113,6 +113,13 @@ func Raw8(
 		}
 		return uint16(v & 0xff), nil
 	}
+	if strings.HasPrefix(param, "inv(") && strings.HasSuffix(param, ")") {
+		v, err := Raw8(labels, lastAbsoluteLabel, defs, param[4:len(param)-1])
+		if err != nil {
+			return 0, err
+		}
+		return uint16((256 / v) & 0xff), nil
+	}
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
@@ -165,6 +172,26 @@ func Raw16(
 	defs *Definitions,
 	param string,
 ) (uint16, error) {
+	if strings.Contains(param, "-") {
+		spl := strings.Split(param, "-")
+
+		v, err := Raw16(labels, lastAbsoluteLabel, defs, spl[0])
+		if err != nil {
+			return 0, err
+		}
+		result := v
+
+		for _, arg := range spl[1:] {
+			v, err := Raw16(labels, lastAbsoluteLabel, defs, arg)
+			if err != nil {
+				return 0, err
+			}
+			result -= v
+		}
+
+		return result, nil
+	}
+
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
