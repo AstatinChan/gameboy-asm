@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-type ParamType func(labels *Labels, lastAbsoluteLabel string, defs *Definitions, param string) (uint16, error)
+type ParamType func(labels *Labels, lastAbsoluteLabel string, defs *Definitions, currentAddr uint32, param string) (uint32, error)
 
 type InstructionParams struct {
 	Types            []ParamType
-	Assembler        func(currentAddress uint16, args []uint16) ([]uint8, error)
+	Assembler        func(currentAddress uint32, args []uint32) ([]uint8, error)
 	Wildcard         bool
 	MacroForbidden   bool
 	LabelsBeforeOnly bool
@@ -19,8 +19,8 @@ type InstructionSet map[string][]InstructionParams
 
 var Instructions = InstructionSetNew()
 
-func absoluteJPValueToRelative(baseAddress uint16, absoluteAddress uint16) (uint8, error) {
-	newAddress := (int16(absoluteAddress) - int16(baseAddress) - 2)
+func absoluteJPValueToRelative(baseAddress uint32, absoluteAddress uint32) (uint8, error) {
+	newAddress := (int32(absoluteAddress) - int32(baseAddress) - 2)
 	if newAddress < -127 || newAddress > 128 {
 		return 0, fmt.Errorf(
 			"Address 0x%04x and 0x%04x are too far apart to use JR. Please use JP instead",
@@ -37,7 +37,7 @@ func InstructionSetNew() InstructionSet {
 	result["LD"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8, Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{
 					0b01000000 | (uint8(uint8(args[0])) << 3) | uint8(uint8(args[1])),
 				}, nil
@@ -45,53 +45,53 @@ func InstructionSetNew() InstructionSet {
 		},
 		// {
 		// 	Types:     []ParamType{HL, Raw8Indirect},
-		// 	Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11111000, uint8(args[1])}, nil },
+		// 	Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11111000, uint8(args[1])}, nil },
 		// },
 		{
 			Types: []ParamType{Reg8, Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b00000110 | (uint8(args[0]) << 3), uint8(args[1])}, nil
 			},
 		},
 		{
 			Types:     []ParamType{A, Raw8Indirect},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11110000, uint8(args[1])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11110000, uint8(args[1])}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8Indirect, A},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11100000, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11100000, uint8(args[0])}, nil },
 		},
 		{
 			Types:     []ParamType{A, Reg16Indirect},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00001010 | uint8(args[1])<<4}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00001010 | uint8(args[1])<<4}, nil },
 		},
 		{
 			Types:     []ParamType{Reg16Indirect, A},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00000010 | uint8(args[0])<<4}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00000010 | uint8(args[0])<<4}, nil },
 		},
 		{
 			Types: []ParamType{A, Raw16Indirect},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11111010, uint8(args[1]) & 0xff, uint8(args[1] >> 8)}, nil
 			},
 		},
 		{
 			Types: []ParamType{Raw16Indirect, A},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11101010, uint8(args[0]) & 0xff, uint8(args[0] >> 8)}, nil
 			},
 		},
 		{
 			Types:     []ParamType{A, IndirectC},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11110010}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11110010}, nil },
 		},
 		{
 			Types:     []ParamType{IndirectC, A},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11100010}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11100010}, nil },
 		},
 		{
 			Types: []ParamType{Reg16, Raw16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{
 					0b00000001 | (uint8(args[0]) << 4),
 					uint8(args[1]) & 0xff,
@@ -101,171 +101,171 @@ func InstructionSetNew() InstructionSet {
 		},
 		{
 			Types: []ParamType{Raw16Indirect, SP},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b00001000, uint8(args[0]) & 0xff, uint8(args[0] >> 8)}, nil
 			},
 		},
 		{
 			Types:     []ParamType{SP, HL},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11111001}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11111001}, nil },
 		},
 	}
 	result["PUSH"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11000101 | (uint8(args[0]) << 4)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11000101 | (uint8(args[0]) << 4)}, nil },
 		},
 	}
 	result["POP"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11000001 | (uint8(args[0]) << 4)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11000001 | (uint8(args[0]) << 4)}, nil },
 		},
 	}
 	result["ADD"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10000000 | (uint8(args[0]))}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10000000 | (uint8(args[0]))}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11000110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11000110, uint8(args[0])}, nil },
 		},
 		{
 			Types:     []ParamType{SP, Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11101000, uint8(args[1])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11101000, uint8(args[1])}, nil },
 		},
 	}
 	result["ADC"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10001000 | uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10001000 | uint8(args[0])}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11001110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11001110, uint8(args[0])}, nil },
 		},
 	}
 	result["SUB"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10010000 | (uint8(args[0]))}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10010000 | (uint8(args[0]))}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11010110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11010110, uint8(args[0])}, nil },
 		},
 	}
 	result["SBC"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10011000 | uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10011000 | uint8(args[0])}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11011110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11011110, uint8(args[0])}, nil },
 		},
 	}
 	result["CP"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10111000 | (uint8(args[0]))}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10111000 | (uint8(args[0]))}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11111110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11111110, uint8(args[0])}, nil },
 		},
 	}
 	result["INC"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00000100 | (uint8(args[0]) << 3)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00000100 | (uint8(args[0]) << 3)}, nil },
 		},
 
 		{
 			Types:     []ParamType{Reg16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00000011 | (uint8(args[0]) << 4)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00000011 | (uint8(args[0]) << 4)}, nil },
 		},
 	}
 	result["DEC"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00000101 | (uint8(args[0]) << 3)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00000101 | (uint8(args[0]) << 3)}, nil },
 		},
 
 		{
 			Types:     []ParamType{Reg16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00001011 | (uint8(args[0]) << 4)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00001011 | (uint8(args[0]) << 4)}, nil },
 		},
 	}
 	result["AND"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10100000 | (uint8(args[0]))}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10100000 | (uint8(args[0]))}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11100110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11100110, uint8(args[0])}, nil },
 		},
 	}
 	result["OR"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10110000 | (uint8(args[0]))}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10110000 | (uint8(args[0]))}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11110110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11110110, uint8(args[0])}, nil },
 		},
 	}
 	result["XOR"] = []InstructionParams{
 		{
 			Types:     []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b10101000 | (uint8(args[0]))}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b10101000 | (uint8(args[0]))}, nil },
 		},
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11101110, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11101110, uint8(args[0])}, nil },
 		},
 	}
 	result["CCF"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00111111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00111111}, nil },
 		},
 	}
 	result["SCF"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00110111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00110111}, nil },
 		},
 	}
 	result["DAA"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00100111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00100111}, nil },
 		},
 	}
 	result["CPL"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00101111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00101111}, nil },
 		},
 	}
 	result["JP"] = []InstructionParams{
 		{
 			Types: []ParamType{Raw16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11000011, uint8(args[0]) & 0xff, uint8(args[0] >> 8)}, nil
 			},
 		},
 		{
 			Types:     []ParamType{HL},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11101001}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11101001}, nil },
 		},
 		{
 			Types: []ParamType{Condition, Raw16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{
 					0b11000010 | (uint8(args[0]) << 3),
 					uint8(args[1]) & 0xff,
@@ -277,17 +277,17 @@ func InstructionSetNew() InstructionSet {
 	result["JR"] = []InstructionParams{
 		{
 			Types:     []ParamType{Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00011000, uint8(args[0])}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00011000, uint8(args[0])}, nil },
 		},
 		{
 			Types: []ParamType{Condition, Raw8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b00100000 | (uint8(args[0]) << 3), uint8(args[1])}, nil
 			},
 		},
 		{
 			Types: []ParamType{Raw16},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
 				relativeAddress, err := absoluteJPValueToRelative(currentAddress, args[0])
 				if err != nil {
 					return nil, err
@@ -297,7 +297,7 @@ func InstructionSetNew() InstructionSet {
 		},
 		{
 			Types: []ParamType{Condition, Raw16},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
 				relativeAddress, err := absoluteJPValueToRelative(currentAddress, args[1])
 				if err != nil {
 					return nil, err
@@ -309,13 +309,13 @@ func InstructionSetNew() InstructionSet {
 	result["CALL"] = []InstructionParams{
 		{
 			Types: []ParamType{Raw16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001101, uint8(args[0]) & 0xff, uint8(args[0] >> 8)}, nil
 			},
 		},
 		{
 			Types: []ParamType{Condition, Raw16},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{
 					0b11000100 | (uint8(args[0]) << 3),
 					uint8(args[1]) & 0xff,
@@ -327,83 +327,83 @@ func InstructionSetNew() InstructionSet {
 	result["RET"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11001001}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11001001}, nil },
 		},
 		{
 			Types:     []ParamType{Condition},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11000000 | (uint8(args[0]) << 3)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11000000 | (uint8(args[0]) << 3)}, nil },
 		},
 	}
 	result["RETI"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11011001}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11011001}, nil },
 		},
 	}
 	result["RST"] = []InstructionParams{
 		{
 			Types:     []ParamType{BitOrdinal},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11000111 | (uint8(args[0]) << 3)}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11000111 | (uint8(args[0]) << 3)}, nil },
 		},
 	}
 	result["DI"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11110011}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11110011}, nil },
 		},
 	}
 	result["EI"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b11111011}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11111011}, nil },
 		},
 	}
 	result["NOP"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00000000}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00000000}, nil },
 		},
 	}
 	result["HALT"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b01110110}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b01110110}, nil },
 		},
 	}
 	result["STOP"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00010000, 0b00000000}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00010000, 0b00000000}, nil },
 		},
 	}
 	result["RLCA"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00000111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00000111}, nil },
 		},
 	}
 	result["RLA"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00010111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00010111}, nil },
 		},
 	}
 	result["RRCA"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00001111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00001111}, nil },
 		},
 	}
 	result["RRA"] = []InstructionParams{
 		{
 			Types:     []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) { return []byte{0b00011111}, nil },
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00011111}, nil },
 		},
 	}
 	result["BIT"] = []InstructionParams{
 		{
 			Types: []ParamType{BitOrdinal, Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b01000000 | (uint8(args[0]) << 3) | uint8(args[1])}, nil
 			},
 		},
@@ -411,7 +411,7 @@ func InstructionSetNew() InstructionSet {
 	result["SET"] = []InstructionParams{
 		{
 			Types: []ParamType{BitOrdinal, Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b11000000 | (uint8(args[0]) << 3) | uint8(args[1])}, nil
 			},
 		},
@@ -419,7 +419,7 @@ func InstructionSetNew() InstructionSet {
 	result["RES"] = []InstructionParams{
 		{
 			Types: []ParamType{BitOrdinal, Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b10000000 | (uint8(args[0]) << 3) | uint8(args[1])}, nil
 			},
 		},
@@ -427,7 +427,7 @@ func InstructionSetNew() InstructionSet {
 	result["RLC"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00000000 | uint8(args[0])}, nil
 			},
 		},
@@ -435,7 +435,7 @@ func InstructionSetNew() InstructionSet {
 	result["RL"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00010000 | uint8(args[0])}, nil
 			},
 		},
@@ -443,7 +443,7 @@ func InstructionSetNew() InstructionSet {
 	result["RRC"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00001000 | uint8(args[0])}, nil
 			},
 		},
@@ -451,7 +451,7 @@ func InstructionSetNew() InstructionSet {
 	result["RR"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00011000 | uint8(args[0])}, nil
 			},
 		},
@@ -459,7 +459,7 @@ func InstructionSetNew() InstructionSet {
 	result["SLA"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00100000 | uint8(args[0])}, nil
 			},
 		},
@@ -467,7 +467,7 @@ func InstructionSetNew() InstructionSet {
 	result["SWAP"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00110000 | uint8(args[0])}, nil
 			},
 		},
@@ -475,7 +475,7 @@ func InstructionSetNew() InstructionSet {
 	result["SRA"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00101000 | uint8(args[0])}, nil
 			},
 		},
@@ -483,7 +483,7 @@ func InstructionSetNew() InstructionSet {
 	result["SRL"] = []InstructionParams{
 		{
 			Types: []ParamType{Reg8},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11001011, 0b00111000 | uint8(args[0])}, nil
 			},
 		},
@@ -491,7 +491,7 @@ func InstructionSetNew() InstructionSet {
 	result["DBG"] = []InstructionParams{
 		{
 			Types: []ParamType{},
-			Assembler: func(_ uint16, args []uint16) ([]byte, error) {
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
 				return []byte{0b11010011}, nil
 			},
 		},
@@ -505,7 +505,7 @@ func (set InstructionSet) Parse(
 	defs *Definitions,
 	isMacro bool,
 	isFirstPass bool,
-	currentAddress uint16,
+	currentAddress uint32,
 	lastAbsoluteLabel string,
 	line string,
 ) ([]byte, error) {
@@ -529,7 +529,7 @@ instruction_param_loop:
 			continue
 		}
 
-		parsed_params := make([]uint16, len(params))
+		parsed_params := make([]uint32, len(params))
 		for i := range parsed_params {
 			var paramType ParamType
 			if instrParam.Wildcard {
@@ -543,7 +543,7 @@ instruction_param_loop:
 			if isFirstPass && !instrParam.LabelsBeforeOnly {
 				accessibleLabels = nil
 			}
-			parsed, err := paramType(accessibleLabels, lastAbsoluteLabel, defs, params[i])
+			parsed, err := paramType(accessibleLabels, lastAbsoluteLabel, defs, currentAddress, params[i])
 			if err != nil {
 				rejectedError := fmt.Errorf("\t[Rejected] Param Type %v: %w\n", paramType, err)
 				if rejectedErrors == nil {

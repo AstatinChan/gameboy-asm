@@ -14,7 +14,7 @@ func InlineMacroAssembler(b []byte) []InstructionParams {
 	return []InstructionParams{
 		{
 			Types: []ParamType{},
-			Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+			Assembler: func(currentAddress uint32, args []uint32) ([]uint8, error) {
 				return b, nil
 			},
 		},
@@ -27,7 +27,7 @@ func NewInstructionSetMacros() InstructionSet {
 	result[".PADTO"] = []InstructionParams{
 		{
 			Types: []ParamType{Raw16},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
 				return make([]byte, args[0]-currentAddress), nil
 			},
 			MacroForbidden:   true,
@@ -35,7 +35,7 @@ func NewInstructionSetMacros() InstructionSet {
 		},
 		{
 			Types: []ParamType{Raw16MacroRelativeLabel},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
 				return make([]byte, args[0]-currentAddress), nil
 			},
 			MacroForbidden:   false,
@@ -46,7 +46,7 @@ func NewInstructionSetMacros() InstructionSet {
 	result[".DB"] = []InstructionParams{
 		{
 			Types: []ParamType{Raw8},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
 				result := make([]byte, len(args))
 				for i := range args {
 					result[i] = uint8(args[i])
@@ -57,7 +57,7 @@ func NewInstructionSetMacros() InstructionSet {
 		},
 		{
 			Types: []ParamType{Raw16},
-			Assembler: func(currentAddress uint16, args []uint16) ([]byte, error) {
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
 				result := make([]byte, len(args)*2)
 				for i := range args {
 					result[i*2] = uint8(args[i] >> 8)
@@ -73,10 +73,11 @@ func NewInstructionSetMacros() InstructionSet {
 }
 
 type (
-	Indirect8b  uint16
-	Indirect16b uint16
-	Raw8b       uint16
-	Raw16b      uint16
+	Indirect8b    uint32
+	Indirect16b   uint32
+	Raw8b         uint32
+	Raw16b        uint32
+	ROMAddressPtr uint32
 )
 
 func MacroParse(
@@ -102,7 +103,7 @@ func MacroParse(
 			&state.Defs,
 			state.IsMacro,
 			isFirstPass,
-			uint16(uint(len(*result))+offset),
+			uint32(uint(len(*result))+offset),
 			LastAbsoluteLabel,
 			line,
 		)
@@ -151,13 +152,13 @@ func MacroParse(
 		}
 
 		var definedValue any
-		if v, err := Raw8Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
+		if v, err := Raw8Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
 			definedValue = Indirect8b(v)
-		} else if v, err := Raw16Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
+		} else if v, err := Raw16Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
 			definedValue = Indirect16b(v)
-		} else if v, err := Raw8(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
+		} else if v, err := Raw8(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
 			definedValue = Raw8b(v)
-		} else if v, err := Raw16(&state.Labels, LastAbsoluteLabel, &state.Defs, words[2]); err == nil {
+		} else if v, err := Raw16(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
 			definedValue = Raw16b(v)
 		} else {
 			return fmt.Errorf("\"%s\" could not be parsed as a .DEFINE argument", words[2])
@@ -181,8 +182,12 @@ func MacroParse(
 		}
 
 		parameterTypes := make([]ParamType, len(definedMacroArguments))
-		for i := range definedMacroArguments {
-			parameterTypes[i] = Raw16
+		for i, v := range definedMacroArguments {
+			if len(v) != 0 && v[0] == '=' {
+				parameterTypes[i] = ROMAddress
+			} else {
+				parameterTypes[i] = Raw16
+			}
 		}
 
 		if isFirstPass {
@@ -193,13 +198,18 @@ func MacroParse(
 			MacroInstructions["."+definedMacroName] = []InstructionParams{
 				{
 					Types: parameterTypes,
-					Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+					Assembler: func(currentAddress uint32, args []uint32) ([]uint8, error) {
 						definitions := Clone(state.Defs)
+						labels := Clone(state.Labels)
 						for i, macroArg := range definedMacroArguments {
-							definitions[macroArg] = Raw16b(args[i])
+							if len(macroArg) != 0 && macroArg[0] == '=' {
+								labels[macroArg[1:]] = uint(args[i])
+							} else {
+								definitions[macroArg] = Raw16b(args[i])
+							}
 						}
 						state := ProgramState{
-							Labels:  Clone(state.Labels),
+							Labels:  labels,
 							Defs:    definitions,
 							IsMacro: true,
 						}
@@ -215,13 +225,18 @@ func MacroParse(
 			MacroInstructions["."+definedMacroName] = []InstructionParams{
 				{
 					Types: parameterTypes,
-					Assembler: func(currentAddress uint16, args []uint16) ([]uint8, error) {
+					Assembler: func(currentAddress uint32, args []uint32) ([]uint8, error) {
 						definitions := Clone(state.Defs)
+						labels := Clone(state.Labels)
 						for i, macroArg := range definedMacroArguments {
-							definitions[macroArg] = Raw16b(args[i])
+							if len(macroArg) != 0 && macroArg[0] == '=' {
+								labels[macroArg[1:]] = uint(args[i])
+							} else {
+								definitions[macroArg] = Raw16b(args[i])
+							}
 						}
 						state := ProgramState{
-							Labels:  Clone(state.Labels),
+							Labels:  labels,
 							Defs:    definitions,
 							IsMacro: true,
 						}

@@ -209,7 +209,7 @@ func secondPass(
 				)
 			}
 		} else {
-			nextInstruction, err := Instructions.Parse(&state.Labels, &state.Defs, state.IsMacro, false, uint16(uint(len(result))+offset), lastAbsoluteLabel, line)
+			nextInstruction, err := Instructions.Parse(&state.Labels, &state.Defs, state.IsMacro, false, uint32(uint(len(result))+offset), lastAbsoluteLabel, line)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"File %s, line %d (2nd pass): %w",
