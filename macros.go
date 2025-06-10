@@ -43,6 +43,31 @@ func NewInstructionSetMacros() InstructionSet {
 		},
 	}
 
+	result[".ASSERT"] = []InstructionParams{
+		{
+			Types: []ParamType{Raw8, Raw8},
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
+				if args[0] != args[1] {
+					return nil, fmt.Errorf("ASSERTION FAILED, %v != %v", args[0], args[1])
+				}
+				return []byte{}, nil
+			},
+			MacroForbidden: false,
+			SkipFirstPass:  true,
+		},
+		{
+			Types: []ParamType{Raw16, Raw16},
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
+				if args[0] != args[1] {
+					return nil, fmt.Errorf("ASSERTION FAILED, %v != %v", args[0], args[1])
+				}
+				return []byte{}, nil
+			},
+			MacroForbidden: false,
+			SkipFirstPass:  true,
+		},
+	}
+
 	result[".DB"] = []InstructionParams{
 		{
 			Types: []ParamType{Raw8},

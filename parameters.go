@@ -234,16 +234,28 @@ func Raw16(
 	if strings.Contains(param, "-") {
 		spl := strings.Split(param, "-")
 
-		v, err := Raw16(labels, lastAbsoluteLabel, defs, currentAddress, spl[0])
+		v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, spl[0])
 		if err != nil {
 			return 0, err
 		}
+
+		bank := v / 0x4000
 		result := v
 
 		for _, arg := range spl[1:] {
-			v, err := Raw16(labels, lastAbsoluteLabel, defs, currentAddress, arg)
+			v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, arg)
 			if err != nil {
 				return 0, err
+			}
+			otherBank := v / 0x4000
+			if bank != otherBank {
+				return 0, fmt.Errorf(
+					"Cannot get distance between rom addresses in different banks (%s is in bank %v, %s is in bank %v)",
+					spl[0],
+					bank,
+					arg,
+					otherBank,
+				)
 			}
 			result -= v
 		}
@@ -293,6 +305,7 @@ func Raw16(
 		currentBank := currentAddress / 0x4000
 		romAddrBank := romAddr / 0x4000
 
+		// TODO: Forbidding calls from other banks to bank 0
 		if romAddrBank == 0 {
 			return romAddr, nil
 		}
@@ -422,6 +435,10 @@ func ROMAddress(
 	currentAddress uint32,
 	param string,
 ) (uint32, error) {
+	if param == "." {
+		return currentAddress, nil
+	}
+
 	if strings.HasPrefix(param, "=") {
 		labelWithoutOffset, offset, err := parseOffset(param[1:])
 		if err != nil {

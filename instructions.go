@@ -13,6 +13,7 @@ type InstructionParams struct {
 	Wildcard         bool
 	MacroForbidden   bool
 	LabelsBeforeOnly bool
+	SkipFirstPass    bool
 }
 
 type InstructionSet map[string][]InstructionParams
@@ -525,6 +526,10 @@ func (set InstructionSet) Parse(
 	var rejectedErrors error
 instruction_param_loop:
 	for _, instrParam := range instruction {
+		if instrParam.SkipFirstPass && isFirstPass {
+			return []byte{}, nil
+		}
+
 		if !instrParam.Wildcard && len(instrParam.Types) != len(params) {
 			continue
 		}
