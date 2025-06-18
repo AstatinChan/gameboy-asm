@@ -176,14 +176,16 @@ func MacroParse(
 			return fmt.Errorf("Defined variable \"%s\" is also valid hexadecimal", name)
 		}
 
+		current_address := uint32(uint(len(*result)) + offset)
+
 		var definedValue any
-		if v, err := Raw8Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
+		if v, err := Raw8Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, current_address, words[2]); err == nil {
 			definedValue = Indirect8b(v)
-		} else if v, err := Raw16Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
+		} else if v, err := Raw16Indirect(&state.Labels, LastAbsoluteLabel, &state.Defs, current_address, words[2]); err == nil {
 			definedValue = Indirect16b(v)
-		} else if v, err := Raw8(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
+		} else if v, err := Raw8(&state.Labels, LastAbsoluteLabel, &state.Defs, current_address, words[2]); err == nil {
 			definedValue = Raw8b(v)
-		} else if v, err := Raw16(&state.Labels, LastAbsoluteLabel, &state.Defs, 0xffffffff, words[2]); err == nil {
+		} else if v, err := Raw16(&state.Labels, LastAbsoluteLabel, &state.Defs, current_address, words[2]); err == nil {
 			definedValue = Raw16b(v)
 		} else {
 			return fmt.Errorf("\"%s\" could not be parsed as a .DEFINE argument", words[2])

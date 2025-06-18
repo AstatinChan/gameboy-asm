@@ -563,7 +563,14 @@ instruction_param_loop:
 		}
 
 		if instrParam.MacroForbidden && isMacro {
-			return nil, fmt.Errorf("This instruction cannot be used with this set of params inside of a macro")
+			rejectedError := fmt.Errorf("\t[Rejected] Param Type %v: This instruction cannot be used with this set of params inside of a macro\n", paramType, err)
+			if rejectedErrors == nil {
+				rejectedErrors = rejectedError
+			} else {
+				rejectedErrors = fmt.Errorf("%w%w", rejectedErrors, rejectedError)
+			}
+			continue
+			// return nil, fmt.Errorf("")
 		}
 
 		return instrParam.Assembler(currentAddress, parsed_params)
