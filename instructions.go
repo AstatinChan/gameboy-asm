@@ -563,7 +563,7 @@ instruction_param_loop:
 		}
 
 		if instrParam.MacroForbidden && isMacro {
-			rejectedError := fmt.Errorf("\t[Rejected] Param Type %v: This instruction cannot be used with this set of params inside of a macro\n", paramType, err)
+			rejectedError := fmt.Errorf("\t[Rejected] This instruction cannot be used with this set of params inside of a macro\n")
 			if rejectedErrors == nil {
 				rejectedErrors = rejectedError
 			} else {
