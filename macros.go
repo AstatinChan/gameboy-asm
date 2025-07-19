@@ -165,6 +165,20 @@ func MacroParse(
 			}
 			*result = append(*result, included...)
 		}
+	} else if macroName == ".INCLUDEBIN" && !state.IsMacro {
+		filePath := strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, ".INCLUDEBIN")), "\"'")
+
+		input_file, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("Error while opening file %s", filePath)
+		}
+
+		input, err := io.ReadAll(input_file)
+		if err != nil {
+			return fmt.Errorf("Error while reading file %s", filePath)
+		}
+
+		*result = append(*result, input...)
 	} else if macroName == ".DEFINE" && !state.IsMacro {
 		if len(words) != 3 {
 			return fmt.Errorf(".DEFINE must have 2 arguments (%v)", words)
