@@ -231,38 +231,6 @@ func Raw16(
 		return v - bank*0x4000 + 0x4000, nil
 	}
 
-	if strings.Contains(param, "-") {
-		spl := strings.Split(param, "-")
-
-		v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, spl[0])
-		if err != nil {
-			return 0, err
-		}
-
-		bank := v / 0x4000
-		result := v
-
-		for _, arg := range spl[1:] {
-			v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, arg)
-			if err != nil {
-				return 0, err
-			}
-			otherBank := v / 0x4000
-			if bank != otherBank {
-				return 0, fmt.Errorf(
-					"Cannot get distance between rom addresses in different banks (%s is in bank %v, %s is in bank %v)",
-					spl[0],
-					bank,
-					arg,
-					otherBank,
-				)
-			}
-			result -= v
-		}
-
-		return result & 0xffff, nil
-	}
-
 	if strings.HasPrefix(param, "$") {
 		param = strings.ToUpper(strings.TrimPrefix(param, "$"))
 		if res, err := strconv.ParseUint(param, 16, 16); err == nil {
@@ -298,6 +266,87 @@ func Raw16(
 		}
 
 		return uint32(res) + offset, nil
+	}
+
+	if strings.Contains(param, "+") {
+		spl := strings.Split(param, "+")
+
+		v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, spl[0])
+		if err != nil {
+			return 0, err
+		}
+
+		result := v
+		bank := v / 0x4000
+		for _, arg := range spl[1:] {
+			v, err := Raw16(labels, lastAbsoluteLabel, defs, currentAddress, arg)
+			if err != nil {
+				return 0, err
+			}
+
+			result += v
+		}
+
+		if (result / 0x4000) != bank {
+			return 0, fmt.Errorf(
+				"Cannot add an offset to a ROMAddress that would overflow the current bank (bank(%s) == %v != bank(%s) == %v",
+				spl[0],
+				bank,
+				param,
+				result/0x4000,
+			)
+		}
+
+		return result & 0xffff, nil
+	}
+
+	if strings.Contains(param, "-") {
+		spl := strings.Split(param, "-")
+
+		v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, spl[0])
+		if err != nil {
+			return 0, err
+		}
+
+		bank := v / 0x4000
+		result := v
+
+		for i, arg := range spl[1:] {
+			v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, arg)
+			if err == nil {
+				otherBank := v / 0x4000
+				if bank != otherBank {
+					return 0, fmt.Errorf(
+						"Cannot get distance between rom addresses in different banks (%s is in bank %v, %s is in bank %v)",
+						spl[0],
+						bank,
+						arg,
+						otherBank,
+					)
+				}
+				result -= v
+				continue
+			}
+
+			v, err = Raw16(labels, lastAbsoluteLabel, defs, currentAddress, arg)
+			if err != nil {
+				return 0, err
+			}
+			if result/0x4000 != (result-v)/0x4000 && labels != nil {
+				return 0, fmt.Errorf(
+					"Cannot change the bank of a rom address by substracting an offset (bank(%s (=%v)) == %v != bank(%s (=%v)) == %v",
+					strings.Join(spl[:i+1], "-"),
+					result,
+					result/0x4000,
+					strings.Join(spl[:i+2], "-"),
+					result-v,
+					(result-v)/0x4000,
+				)
+			}
+			result -= v
+		}
+
+		return result & 0xffff, nil
 	}
 
 	romAddr, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, param)
