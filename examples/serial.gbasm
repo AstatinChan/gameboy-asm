@@ -1,0 +1,73 @@
+; This ROM is a simple example of how to use serial connections.
+; It will wait to receive text via the serial connection, save the text in memory until it encounters a new line (without overflow check), then send back in ASCII "Astatin" and a new line followed by the text that was received.
+
+.PADTO 0x0058
+	JP =Serial_Recv
+
+.PADTO 0x0100
+Entry:
+	JP =Start
+
+.PADTO 0x0104
+Nintendo_Logo: ; The Nintendo logo must be stored in bytes 0x104-133
+	.DB $CE,$ED,$66,$66,$CC,$0D,$00,$0B,$03,$73,$00,$83,$00,$0C,$00,$0D
+	.DB $00,$08,$11,$1F,$88,$89,$00,$0E,$DC,$CC,$6E,$E6,$DD,$DD,$D9,$99
+	.DB $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3E
+
+.PADTO 0x0134
+Checksum: ; The bytes 0x134-0x14d need to add up to 0xe7 (= 0xff - 0x19)
+	.DB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	.DB $00,$00,$00,$00,$00,$00,$00,$00,$00,$e7
+
+Start:
+	LD SP, $fffe
+
+	LD A, $00
+	LD ($40), A
+
+	LD A, $08
+	LD ($ff), A
+
+	LD HL, $c000
+	EI
+
+	Lock:
+		HALT
+		EI
+		JR =Lock
+
+Serial_Recv:
+	LD A, ($01)
+	CP $0a
+	CALL Z, =Read_back
+	LD (HL+), A
+	RETI
+
+Read_back:
+	LD (HL), $00
+	LD HL, =Astatin_ASCII
+	CALL =Print
+	LD HL, $c000
+	CALL =Print
+	JP =Start
+
+Astatin_ASCII:
+.DB $41, $73, $74, $61, $74, $69, $6e, $0a $00
+
+Print:
+	.send_loop:
+		LD A, (HL+)
+		CP $00
+		RET Z
+
+		LD ($01), A
+
+		LD A, $81
+
+		LD ($02), A
+
+		.wait_transfer:
+			LD A, ($02)
+			BIT 7, A
+			JR NZ, =.wait_transfer
+		JR =.send_loop

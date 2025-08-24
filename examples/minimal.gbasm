@@ -15,7 +15,7 @@ Checksum: ; The bytes 0x134-0x14d need to add up to 0xe7 (= 0xff - 0x19)
 
 Start:
 	Wait_VBlank:
-		LD A, (0xFF00+$41)
+		LD A, ($41)
 		AND $03
 		CP $01
 		JR NZ, =Wait_VBlank

@@ -22,6 +22,10 @@ Checksum: ; The bytes 0x134-0x14d need to add up to 0xe7 (= 0xff - 0x19)
 
 .DEFINE Wave_Top $c0
 Start:
+	LD A, ($42)
+	LD ($82), A
+	LD A, ($43)
+	LD ($83), A
 	LD C, $01
 	LD A, $03
 	LD ($FF), A
@@ -41,7 +45,7 @@ Start:
 	EI
 Halt_loop:
 	HALT
-	JP Halt_loop
+	JP =Halt_loop
 
 Effect:
 	LD A, ($44)
@@ -64,7 +68,14 @@ Effect:
 	RRCA
 	SUB $02
 
+	LD D, A
+
+	LD A, ($83)
+	ADD D
 	LD ($43), A
+
+	LD A, ($82)
+	ADD D
 	LD ($42), A
 	RETI
 
