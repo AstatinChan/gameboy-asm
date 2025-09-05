@@ -136,6 +136,10 @@ func InstructionSetNew() InstructionSet {
 			Types:     []ParamType{SP, Raw8},
 			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11101000, uint8(args[1])}, nil },
 		},
+		{
+			Types:     []ParamType{HL, Reg16},
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b00001001 | (uint8(args[1] << 4))}, nil },
+		},
 	}
 	result["ADC"] = []InstructionParams{
 		{
