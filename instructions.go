@@ -21,11 +21,15 @@ type InstructionSet map[string][]InstructionParams
 var Instructions = InstructionSetNew()
 
 func absoluteJPValueToRelative(baseAddress uint32, absoluteAddress uint32) (uint8, error) {
-	newAddress := (int32(absoluteAddress) - int32(baseAddress) - 2)
+	baseAddressAfterBanking := baseAddress
+	if baseAddressAfterBanking >= 0x8000 {
+		baseAddressAfterBanking = (baseAddress % 0x4000 + 0x4000)
+	}
+	newAddress := (int32(absoluteAddress) - int32(baseAddressAfterBanking) - 2)
 	if newAddress < -127 || newAddress > 128 {
 		return 0, fmt.Errorf(
 			"Address 0x%04x and 0x%04x are too far apart to use JR. Please use JP instead",
-			baseAddress,
+			baseAddressAfterBanking,
 			absoluteAddress,
 		)
 	}
