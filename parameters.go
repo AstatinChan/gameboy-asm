@@ -217,6 +217,9 @@ func Raw16(
 	currentAddress uint32,
 	param string,
 ) (uint32, error) {
+	if strings.HasPrefix(param, "&") {
+		return Raw16Indirect(labels, lastAbsoluteLabel, defs, currentAddress, param[1:])
+	}
 	if strings.HasPrefix(param, "ptr(") && strings.HasSuffix(param, ")") {
 		v, err := ROMAddress(labels, lastAbsoluteLabel, defs, currentAddress, param[4:len(param)-1])
 		if err != nil {
