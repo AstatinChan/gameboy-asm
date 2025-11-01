@@ -374,6 +374,11 @@ func Raw16(
 		return romAddr - romAddrBank*0x4000 + 0x4000, nil
 	}
 
+	v, err := Raw8(labels, lastAbsoluteLabel, defs, currentAddress, param)
+	if err == nil {
+		return v, nil
+	}
+
 	res, err := strconv.ParseUint(param, 0, 16)
 
 	return uint32(res), err
