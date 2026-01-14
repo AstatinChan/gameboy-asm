@@ -61,7 +61,7 @@ func firstPass(
 		line := lines[lineNb]
 		lineParts := strings.Split(line, ";")
 		line = lineParts[0]
-		isLabelDefined := strings.Contains(line, ":")
+		isLabelDefined := strings.Contains(line, ":") && !strings.Contains(strings.Split(line,":")[0], " ")
 
 		if isLabelDefined {
 			parts := strings.Split(line, ":")
@@ -164,7 +164,7 @@ func secondPass(
 		line := lines[lineNb]
 		lineParts := strings.Split(line, ";")
 		line = lineParts[0]
-		isLabelDefined := strings.Contains(line, ":")
+		isLabelDefined := strings.Contains(line, ":") && !strings.Contains(strings.Split(line,":")[0], " ")
 
 		if isLabelDefined {
 			parts := strings.Split(line, ":")

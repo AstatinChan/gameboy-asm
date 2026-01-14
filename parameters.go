@@ -252,11 +252,15 @@ func Raw16(
 
 		res, ok := definition.(Raw16b)
 		if !ok {
-			return 0, fmt.Errorf(
-				"$%s is of type %T but Raw16b is expected",
-				varWithoutOffset,
-				definition,
-			)
+			res8b, ok := definition.(Raw8b)
+			if !ok {
+				return 0, fmt.Errorf(
+					"$%s is of type %T but Raw16b (or Raw8b) is expected",
+					varWithoutOffset,
+					definition,
+				)
+			}
+			res = Raw16b(res8b)
 		}
 
 		if uint32(res)+uint32(offset) > 0xffff {
@@ -536,14 +540,28 @@ func ROMAddress(
 		)
 	}
 
-	addr, err := strconv.ParseUint(param[3:], 16, 8)
+	addr, err := strconv.ParseUint(param[3:], 16, 16)
 	if err != nil {
 		return 0, fmt.Errorf(
-			"Couldn't parse address in \"%s\"", param,
+			"Couldn't parse address in \"%s\" (err: %w)", param, err,
 		)
 	}
 
-	return uint32(bank*0x4000 + addr), nil
+	if bank == 0 && addr >= 0x4000 {
+		return 0, fmt.Errorf(
+			"Bank 0 only maps to 0x0000-0x3fff. 0x%04x > 0x3fff", addr,
+		)
+	}
+	if bank != 0 && addr < 0x4000 || addr >= 0x8000 {
+		return 0, fmt.Errorf(
+			"Bank %02x only maps to 0x4000-0x7fff. 0x%04x is not mapped by this bank.", bank, addr,
+		)
+	}
+
+	if bank == 0 {
+		return uint32(addr), nil
+	}
+	return uint32((bank-1)*0x4000 + addr), nil
 }
 
 func Condition(

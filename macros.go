@@ -24,10 +24,38 @@ func InlineMacroAssembler(b []byte) []InstructionParams {
 func NewInstructionSetMacros() InstructionSet {
 	result := make(InstructionSet)
 
+	result[".ALIGN"] = []InstructionParams{
+		{
+			Types: []ParamType{},
+			Assembler: func(currentAddress uint32, _ []uint32) ([]byte, error) {
+				if currentAddress % 0x4000 == 0 {
+					return []byte{}, nil
+				}
+				return make([]byte, 0x4000-(currentAddress%0x4000)), nil
+			},
+			MacroForbidden:   true,
+			LabelsBeforeOnly: true,
+		},
+	}
+
 	result[".PADTO"] = []InstructionParams{
+		{
+			Types: []ParamType{ROMAddress},
+			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
+				if (args[0]<currentAddress) {
+					return nil, fmt.Errorf("Cannot PADTO negative amount of byte ($%08x - .(=$%08x) < 0)", args[0], currentAddress)
+				}
+				return make([]byte, args[0]-currentAddress), nil
+			},
+			MacroForbidden:   true,
+			LabelsBeforeOnly: true,
+		},
 		{
 			Types: []ParamType{Raw16},
 			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
+				if (args[0]<currentAddress) {
+					return nil, fmt.Errorf("Cannot PADTO negative amount of byte ($%08x - .(=$%08x) < 0)", args[0], currentAddress)
+				}
 				return make([]byte, args[0]-currentAddress), nil
 			},
 			MacroForbidden:   true,
@@ -36,6 +64,9 @@ func NewInstructionSetMacros() InstructionSet {
 		{
 			Types: []ParamType{Raw16MacroRelativeLabel},
 			Assembler: func(currentAddress uint32, args []uint32) ([]byte, error) {
+				if (args[0]<currentAddress) {
+					return nil, fmt.Errorf("Cannot PADTO negative amount of byte ($%08x - .(=$%08x) < 0)", args[0], currentAddress)
+				}
 				return make([]byte, args[0]-currentAddress), nil
 			},
 			MacroForbidden:   false,
