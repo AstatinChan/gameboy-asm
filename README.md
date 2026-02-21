@@ -1,10 +1,10 @@
 # Astatin Assembler
 
-Heyo !! This is the assembler I use to create [BunnyLand (Temporary name)](https://github.com/AstatinChan/BunnyLand-Gameboy) on [stream on Twitch](https://www.twitch.tv/astatinchan)
+Heyo !! This is the assembler I use to create [BunnyLand (Temporary name)](https://git.astatin.live/bunny-game.git/about/) on [stream on Twitch](https://www.twitch.tv/astatinchan)
 
 ## Get the assembler
 
-If you're on linux on x86\_64 you can download an already compiled binary [here](https://github.com/AstatinChan/gameboy-asm/releases/download/latest/gbasm_linux-x86_64).
+If you're on linux on x86\_64 you can download an already compiled binary [here](https://pellets.astatin.live/pkgs/gameboy-asm/latest/gbasm_linux-x86_64).
 
 If you can't use this binary you will need to compile the binary by yourself:
 
@@ -26,7 +26,7 @@ sudo apt install golang
 Clone the assembler:
 
 ```bash
-git clone https://github.com/AstatinChan/gameboy-asm.git
+git clone http://git.astatin.live/gameboy-asm.git
 cd gameboy-asm
 ```
 
@@ -42,15 +42,15 @@ To assemble gbasm files, call the assembler with the input file as the first par
 
 ### Example
 
-When having the file [`zoom.gbasm`](https://github.com/AstatinChan/gameboy-asm/blob/main/examples/zoom.gbasm) in your current directory, this will compile to a usable rom file:
+When having the file [`wave.gbasm`](https://git.astatin.live/gameboy-asm.git/tree/examples/wave.gbasm) in your current directory, this will compile to a usable rom file:
 
 ```bash
-gbasm zoom.gbasm zoom.rom
+gbasm wave.gbasm wave.rom
 ```
 
 ## Gameboy assembly
 
-To even be able to start, gameboy roms need to contain some data to be validated by the boot rom. The minimal rom which starts, clear the screen and starts an infinite loop to hang is available in [examples/minimal.gbasm](https://github.com/AstatinChan/gameboy-asm/blob/main/examples/minimal.gbasm)
+To even be able to start, gameboy roms need to contain some data to be validated by the boot rom. The minimal rom which starts, clear the screen and starts an infinite loop to hang is available in [examples/minimal.gbasm](https://git.astatin.live/gameboy-asm.git/tree/examples/minimal.gbasm)
 
 ### Labels
 
@@ -169,4 +169,4 @@ The list of different possible opcodes:
 | *User defined with .MACRODEF* | | | Yes |
 
 [^1]: This is only syntaxic sugar that will be converted to 8b relative to the instruction to allow the use of labels. If the address is too far away from the address of the instruction in rom to be converted to 8b, the assembly will fail with an error suggesting to use JP instead of JR.
-[^2]: This instruction is not standard and may cause error or crashes on both emulators and real hardware. In [my gameboy emulator](https://github.com/AstatinChan/gameboy-emulator) it is used to tell the emulator to dump the content of the registers.
+[^2]: This instruction is not standard and may cause error or crashes on both emulators and real hardware. In [my gameboy emulator](https://git.astatin.live/gameboy-emulator.git/about/) it is used to tell the emulator to dump the content of the registers.
