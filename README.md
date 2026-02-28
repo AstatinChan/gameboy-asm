@@ -1,6 +1,6 @@
 # Astatin Assembler
 
-Heyo !! This is the assembler I use to create [BunnyLand (Temporary name)](https://git.astatin.live/bunny-game.git/about/) on [stream on Twitch](https://www.twitch.tv/astatinchan)
+Heyo !! This is the assembler I use to create [BunnyLand (Temporary name)](https://git.astatin.live/bunny-game.git/about/) on [stream on Twitch](https://links.astatin.live/twitch)
 
 ## Get the assembler
 
