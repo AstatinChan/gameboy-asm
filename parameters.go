@@ -529,22 +529,32 @@ func ROMAddress(
 		return uint32(labelValue) + offset, nil
 	}
 
-	if len(param) != 7 || param[2] != ':' {
+	addressStr := strings.Split(param, ":")
+
+	if len(addressStr) != 2 {
 		return 0, fmt.Errorf("Couldn't parse \"%s\" as a ROM addr", param)
 	}
 
-	bank, err := strconv.ParseUint(param[0:2], 16, 8)
+	bank, err := strconv.ParseUint(addressStr[0], 16, 8)
 	if err != nil {
-		return 0, fmt.Errorf(
-			"Couldn't parse bank number in \"%s\"", param,
-		)
+		bank_32, err := Raw8(labels, lastAbsoluteLabel, defs, currentAddress, addressStr[0])
+		if err != nil {
+			return 0, fmt.Errorf(
+				"Couldn't parse bank number in \"%s\"", param,
+			)
+		}
+		bank = uint64(bank_32)
 	}
 
-	addr, err := strconv.ParseUint(param[3:], 16, 16)
+	addr, err := strconv.ParseUint(addressStr[1], 16, 16)
 	if err != nil {
-		return 0, fmt.Errorf(
-			"Couldn't parse address in \"%s\" (err: %w)", param, err,
-		)
+		addr_32, err := Raw16(labels, lastAbsoluteLabel, defs, currentAddress, addressStr[1])
+		if err != nil {
+			return 0, fmt.Errorf(
+				"Couldn't parse address in \"%s\" (err: %w)", param, err,
+			)
+		}
+		addr = uint64(addr_32)
 	}
 
 	if bank == 0 && addr >= 0x4000 {
