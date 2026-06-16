@@ -93,6 +93,37 @@ func SP(
 	return 0, fmt.Errorf("Invalid SP")
 }
 
+func SPOffset(
+	labels *Labels,
+	lastAbsoluteLabel string,
+	defs *Definitions,
+	current_address uint32,
+	param string,
+) (uint32, error) {
+	if strings.HasPrefix(param, "SP+") {
+		res, err := Raw8(labels, lastAbsoluteLabel, defs, current_address, param[3:])
+		if err != nil {
+			return 0, fmt.Errorf("Invalid SPOffset (%w)", err)
+		}
+		if res >= 0x80 {
+			return 0, fmt.Errorf("Invalid SPOffset (%v > 127 doesn't fit in signed 8b)", res)
+		}
+		return res, nil
+	}
+	if strings.HasPrefix(param, "SP-") {
+		res, err := Raw8(labels, lastAbsoluteLabel, defs, current_address, param[3:])
+		if err != nil {
+			return 0, fmt.Errorf("Invalid SPOffset (%w)", err)
+		}
+		if res > 0x80 {
+			return 0, fmt.Errorf("Invalid SPOffset (-%v < -128 doesn't fit in signed 8b)", res)
+		}
+		res = uint32(-int32(res) & 0xff)
+		return res, nil
+	}
+	return 0, fmt.Errorf("Invalid SPOffset")
+}
+
 func IndirectC(
 	_ *Labels,
 	lastAbsoluteLabel string,

@@ -48,10 +48,10 @@ func InstructionSetNew() InstructionSet {
 				}, nil
 			},
 		},
-		// {
-		// 	Types:     []ParamType{HL, Raw8Indirect},
-		// 	Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11111000, uint8(args[1])}, nil },
-		// },
+		{
+			Types:     []ParamType{HL, SPOffset},
+			Assembler: func(_ uint32, args []uint32) ([]byte, error) { return []byte{0b11111000, uint8(args[1])}, nil },
+		},
 		{
 			Types: []ParamType{Reg8, Raw8},
 			Assembler: func(_ uint32, args []uint32) ([]byte, error) {
